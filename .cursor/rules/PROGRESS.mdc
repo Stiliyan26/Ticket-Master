@@ -1,0 +1,103 @@
+---
+description: Step-by-step implementation roadmap for Ticket Master. Update checkboxes as you complete each task.
+alwaysApply: true
+---
+
+# Implementation Roadmap: Ticket Master
+
+**Goal**: Mid-level → Distributed Systems Engineer by **Jan 5th**
+**Focus**: Backend first → Angular later
+
+---
+
+## Phase 1: Foundation (CURRENT)
+**Objective**: Build a "Safe" schema that rejects bad data before it enters the system.
+
+### ✅ Completed
+- [x] Project setup with NX monorepo
+- [x] DatabaseModule with TypeORM + PostgreSQL
+- [x] ConfigModule with Zod validation
+
+### 🔄 In Progress
+- [ ] **Event entity** - Define fields + `@VersionColumn` for optimistic locking
+- [ ] **Booking entity** - Define fields + `@ManyToOne` relation to Event
+- [ ] **CreateEventDto** - Validation decorators (`@IsString`, `@IsPositive`, etc.)
+- [ ] **CreateBookingDto** - Validation decorators
+
+### 📋 Up Next
+- [ ] **BookingService** - Transaction logic
+  - Decrement `Event.availableTickets` atomically
+  - Create Booking record in same transaction
+- [ ] **EventsService** - CRUD operations for events
+- [ ] **E2E Tests** - Verify booking prevents overselling
+- [ ] **DB Constraints** - `CHECK (availableTickets >= 0)` at DB level
+
+---
+
+## Phase 2: Distributed Locking
+**Objective**: Move locking from DB to Redis for high-traffic scenarios.
+
+- [ ] Docker Compose with Redis
+- [ ] Redis Custom Provider (Factory pattern)
+- [ ] Redlock implementation (acquire/release pattern)
+- [ ] `@DistributedLock()` decorator
+- [ ] Strategy pattern: Switch between DB lock & Redis lock
+- [ ] Load testing with Artillery/k6
+
+---
+
+## Phase 3: Resilience
+**Objective**: Handle failures gracefully without data corruption.
+
+- [ ] Global Exception Filter
+- [ ] Idempotency Keys (prevent double-booking on retry)
+- [ ] Circuit Breaker pattern (for external services)
+- [ ] Retry with exponential backoff
+- [ ] Logging Interceptor (structured logs)
+- [ ] Health checks endpoint
+
+---
+
+## Phase 4: Async Consistency  
+**Objective**: Decouple operations and ensure eventual consistency.
+
+- [ ] BullMQ setup with Redis
+- [ ] Transactional Outbox pattern
+- [ ] Event-driven booking confirmation (email queue)
+- [ ] Saga pattern for multi-step bookings
+- [ ] Dead letter queue handling
+
+---
+
+## Phase 5: API Polish & Documentation
+**Objective**: Production-ready API surface.
+
+- [ ] Swagger/OpenAPI documentation
+- [ ] Rate limiting
+- [ ] API versioning
+- [ ] Request validation pipes (global)
+- [ ] Response serialization interceptor
+
+---
+
+## Phase 6: Angular Frontend (Later)
+**Objective**: Build UI to visualize the booking flow.
+
+- [ ] Event listing page
+- [ ] Real-time ticket availability (WebSockets?)
+- [ ] Booking flow with loading states
+- [ ] Error handling UI
+- [ ] Optimistic UI updates
+
+---
+
+## Quick Reference: What NestJS Patterns to Use Where
+
+| Feature | NestJS Pattern | Course Reference |
+|---------|---------------|------------------|
+| BookingService | `@InjectRepository` + Transactions | Section 3: TypeORM |
+| Redis Provider | Factory Provider + `useFactory` | Section 4: DI |
+| DistributedLock | Custom Decorator + Interceptor | Section 6: Building Blocks |
+| Config | `registerAs` + `ConfigType` | Section 5: Configuration |
+| Exception Filter | `@Catch()` + `ExceptionFilter` | Section 6: Building Blocks |
+| Logging | Interceptor + `tap()` | Section 6: Building Blocks |

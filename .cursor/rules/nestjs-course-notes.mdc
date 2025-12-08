@@ -1,0 +1,187 @@
+---
+description: Key learnings from NestJS Fundamentals course (100% Complete). Reference these patterns during implementation.
+alwaysApply: true
+---
+
+## NestJS Fundamentals Course Notes
+
+### 1. Response Handling - Avoid Platform Dependency
+Don't use `res` object directly - it's platform-dependent and won't work correctly with middleware/interceptors. Use:
+- `@HttpCode(HttpStatus.OK)` for status codes
+- Return objects directly (NestJS handles serialization)
+- Use `@Res({ passthrough: true })` only if you MUST access res
+
+### 2. Error Handling
+Normal errors like `throw 'err'` are caught by NestJS and returned as 500 Server Error. Use `HttpException` or built-in exceptions (`NotFoundException`, `BadRequestException`).
+
+### 3. DTO Best Practices
+Use `readonly` before fields in DTOs:
+```typescript
+export class CreateEventDto {
+  readonly name: string;
+  readonly ticketCount: number;
+}
+```
+
+### 4. Validation Decorators
+`@IsString()`, `@IsNumber()`, etc. return 400 Bad Request with descriptive messages automatically.
+
+### 5. Mapped Types
+Use `@nestjs/mapped-types` to reduce redundancy:
+- `PartialType(CreateDto)` - makes all fields optional + copies decorators + adds `@IsOptional()`
+- `PickType`, `OmitType`, `IntersectionType` for other patterns
+
+### 6. Whitelist & Transform
+Enable globally for security:
+```typescript
+app.useGlobalPipes(new ValidationPipe({
+  whitelist: true,        // Strip properties not in DTO
+  forbidNonWhitelisted: true,  // Throw error for extra props
+  transform: true,        // Auto-transform to DTO class
+}));
+```
+⚠️ `transform: true` has slight performance impact
+
+### 7. CLI Dry Run
+Use `--dry-run` flag to preview what NestJS CLI will generate without creating files.
+
+### 8. TypeORM Synchronize Warning
+```typescript
+TypeORM.forRoot({ synchronize: true })
+```
+⚠️ Set to `false` in production - changing field names could cause data loss!
+
+### 9. TypeORM Relations
+- `@OneToMany` / `@ManyToOne`: **Never** use `@JoinTable`
+- `@ManyToMany`: Use `@JoinTable` on **ONE side only** (the owner side)
+- `@JoinTable` creates the junction table for many-to-many relationships
+
+### 10. Cascading Operations
+When using `cascade: true`, TypeORM automatically saves related entities. Be careful - this can have unintended side effects.
+
+### 11. Type Conversions
+Two approaches:
+- **Global**: `transformOptions: { enableImplicitConversion: true }`
+- **Local**: `@Type(() => Number)` on specific DTO fields
+
+### 12. forFeature Pattern
+```typescript
+TypeOrmModule.forFeature([Coffee]) // Registers entity repository
+
+@Injectable()
+export class CoffeesService {
+  constructor(
+    @InjectRepository(Coffee)
+    private coffeeRepository: Repository<Coffee>
+  ) {}
+}
+```
+
+### 13. useValue Provider - Strategy Pattern
+```typescript
+// Swap implementations (great for testing)
+@Module({
+  providers: [
+    {
+      provide: CoffeesService,
+      useValue: new MockCoffeesService(),
+    }
+  ]
+})
+```
+
+### 14. useClass Provider - Environment-based
+```typescript
+{
+  provide: ConfigService,
+  useClass: process.env.NODE_ENV === 'development'
+    ? DevelopmentConfigService
+    : ProductionConfigService,
+}
+```
+
+### 15. Dynamic Modules
+```typescript
+export class DatabaseModule {
+  static register(options: DataSourceOptions): DynamicModule {
+    return {
+      module: DatabaseModule,
+      providers: [
+        {
+          provide: 'CONNECTION',
+          useValue: new DataSource(options),
+        }
+      ]
+    }
+  }
+}
+```
+
+### 16. Injection Scopes
+- **Singleton** (default): One instance for entire app
+- **Transient** (`Scope.TRANSIENT`): New instance per injection
+- **Request** (`Scope.REQUEST`): New instance per HTTP request
+
+### 17. Config Validation
+Use Joi (or Zod) to validate environment variables at startup - fail fast!
+
+### 18. Partial Registration & Type Safety
+```typescript
+// /src/coffees/coffees.config.ts
+export default registerAs('coffees', () => ({
+  foo: 'bar',
+}));
+
+// Module registration
+@Module({
+  imports: [ConfigModule.forFeature(coffeesConfig)],
+})
+export class CoffeesModule {}
+
+// Type-safe injection (BEST PRACTICE)
+constructor(
+  @Inject(coffeesConfig.KEY)
+  private coffeesConfiguration: ConfigType<typeof coffeesConfig>,
+) {
+  console.log(this.coffeesConfiguration.foo); // Type-safe!
+}
+```
+
+### 19. forRootAsync Pattern
+Use `forRootAsync({ useFactory: () => {} })` for async config loading - module load order won't matter.
+
+### 20. Interceptors Capabilities
+- Add behavior without modifying existing code
+- Bind logic before/after method execution
+- Transform results or exceptions
+- Override methods conditionally (caching)
+
+### 21. Pipes
+Two main use cases:
+- **Transformation** - convert input data
+- **Validation** - validate input data
+
+### 22. Request Lifecycle Order
+```
+Middleware ✅ (first)
+    ↓
+Guards
+    ↓
+Interceptors (before)
+    ↓
+Pipes
+    ↓
+Route Handler
+    ↓
+Interceptors (after)
+    ↓
+Exception Filters (if error occurs)
+```
+
+### 23. Custom Decorators
+Create custom decorators to extract data from requests (e.g., `@Protocol()` to get http/https). Makes testing easier by avoiding direct request object access.
+
+### 24. NPM Lifecycle Hooks
+Use `pre` and `post` prefixes for npm scripts:
+- `prebuild` runs before `build`
+- `postinstall` runs after `npm install`

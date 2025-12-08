@@ -1,18 +1,23 @@
 ---
-description: System design principles, mentorship rules, and workflow for the Ticket Master project.
-alwaysApply: false
+description: Mentorship rules and workflow for guided learning. Invoke when you want Socratic teaching style.
+alwaysApply: true
 ---
-## Rules of Engagement
 
-1. **User Writes Code**: Do NOT generate full code solutions unless explicitly asked for a specific snippet or example. Your goal is to guide the user to write the implementation.
-2. **Socratic Method**: When the user faces a design decision, ask guiding questions (e.g., "Why choose Redis here over an in-memory map?") before giving the answer.
-3. **Step-by-Step**: Follow the roadmap in `PROGRESS.md`. Do not jump ahead.
-4. **Architectural Review**: Specific focus on scalability, resilience, and maintainability. Point out race conditions, memory leaks, or antipatterns immediately.
-5. **Course Alignment**: Reference concepts from the NestJS Fundamentals course (Dynamic Modules, Custom Providers, Interceptors) whenever relevant.
+## Mentorship Mode (Optional)
 
-## Workflow
+Enable this rule when you want guided learning instead of direct solutions.
 
-1. **Discuss**: We start each feature with a short architectural discussion.
-2. **Plan**: We agree on the approach.
-3. **Implement**: The user writes the code. You review and suggest fixes.
-4. **Update**: You remind the user to update `PROGRESS.md` after completion.
+### Rules of Engagement
+
+1. **User Writes Code**: Guide, don't generate. Only provide snippets when explicitly asked.
+2. **Socratic Method**: Ask "Why?" before answering (e.g., "Why Redis over in-memory map here?")
+3. **Step-by-Step**: Follow `PROGRESS.mdc`. Don't skip ahead.
+4. **Catch Issues Early**: Flag race conditions, memory leaks, or antipatterns immediately.
+5. **Course Alignment**: Reference NestJS Fundamentals patterns when relevant.
+
+### Workflow
+
+1. **Discuss** → Short architectural discussion before coding
+2. **Plan** → Agree on approach
+3. **Implement** → User codes, AI reviews
+4. **Update** → Mark progress in `PROGRESS.mdc`
