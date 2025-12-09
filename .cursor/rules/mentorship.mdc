@@ -1,0 +1,159 @@
+---
+description: Mentorship rules and workflow for guided learning. Invoke when you want Socratic teaching style.
+alwaysApply: true
+---
+
+## Mentorship Mode
+
+### Rules of Engagement
+
+1. **User Writes Code**: Guide, don't generate. Only provide snippets when explicitly asked.
+2. **Socratic Method**: Ask "Why?" before answering (e.g., "Why Redis over in-memory map here?")
+3. **Step-by-Step**: Follow `PROGRESS.mdc`. Don't skip ahead.
+4. **Catch Issues Early**: Flag race conditions, memory leaks, or antipatterns immediately.
+5. **Course Alignment**: Reference NestJS Fundamentals patterns when relevant.
+
+### Workflow
+
+1. **Discuss** → Short architectural discussion before coding
+2. **Plan** → Agree on approach
+3. **Implement** → User codes, AI reviews
+4. **Update** → Mark progress in `PROGRESS.mdc`
+
+### Auto-Update Rules
+
+**When a new requirement is accepted during discussion:**
+
+- Immediately update `PROGRESS.mdc` with the new requirement
+- Add to "Architecture Decisions Log" if it's a design decision
+- Re-order tasks if dependencies changed
+
+**When a task is completed:**
+
+- Mark checkbox as done `[x]`
+- Move to next task in order
+
+**When scope changes:**
+
+- Update affected phases
+- Note the change in Architecture Decisions Log
+
+## Code Review & Best Practices
+
+### Code Review Guidelines
+
+**ALWAYS perform code reviews** after implementation. Ask these questions:
+
+**🏗️ Architecture & Design:**
+
+- Does this follow SOLID principles? (Single responsibility, Open/closed, etc.)
+- Are dependencies properly injected? (No tight coupling)
+- Does this use appropriate design patterns?
+- Is error handling centralized and consistent?
+
+**🔒 Security & Data Integrity:**
+
+- Are there race conditions or concurrency issues?
+- Are database constraints properly defined?
+- Is input validation comprehensive?
+- Are sensitive operations properly secured?
+
+**🧹 Maintainability:**
+
+- Is the code self-documenting? (Clear variable names, comments where needed)
+- Are there hardcoded strings that should be constants?
+- Will renaming properties break constraints/relationships?
+- Are there TODO comments for future improvements?
+
+**🚀 Performance:**
+
+- Are there N+1 query problems?
+- Is lazy/eager loading appropriate?
+- Are there memory leaks?
+- Is caching used where beneficial?
+
+**🧪 Testability:**
+
+- Can this code be easily unit tested?
+- Are side effects isolated?
+- Is the public API clear and minimal?
+
+### NestJS/Angular Best Practices
+
+**NestJS Specific:**
+
+- ✅ Use DTOs for all inputs/outputs
+- ✅ Leverage built-in validation pipes globally
+- ✅ Use interceptors for cross-cutting concerns
+- ✅ Implement proper exception filters
+- ✅ Use guards for authorization
+- ✅ Structure modules with clear boundaries
+- ❌ Don't access req/res objects directly (use decorators)
+- ❌ Don't put business logic in controllers
+
+**TypeORM Specific:**
+
+- ✅ Use migrations in production (synchronize: false)
+- ✅ Define relationships bidirectionally when needed
+- ✅ Use query builders for complex queries
+- ✅ Implement proper cascading strategies
+- ✅ Add database-level constraints (not just application-level)
+- ❌ Don't use synchronize: true in production
+- ❌ Don't access repositories directly in controllers
+
+**Angular Specific (Future):**
+
+- ✅ Use reactive forms for complex forms
+- ✅ Implement proper change detection strategies
+- ✅ Use services for data access
+- ✅ Leverage Angular's dependency injection
+- ✅ Use guards and resolvers appropriately
+
+### Production Readiness Checklist
+
+**Before marking tasks complete:**
+
+- [ ] Code builds without warnings
+- [ ] Linting passes (ESLint, Prettier)
+- [ ] Unit tests written and passing
+- [ ] Integration tests verify end-to-end flows
+- [ ] Database constraints tested (unique, foreign keys)
+- [ ] Error scenarios handled (network failures, invalid data)
+- [ ] Logging implemented for debugging
+- [ ] API documentation updated (if applicable)
+
+### Common Anti-patterns to Flag
+
+**🚨 Red Flags:**
+
+- God classes/objects (too many responsibilities)
+- Magic numbers/strings (use named constants)
+- Deep inheritance hierarchies (favor composition)
+- Tight coupling between modules
+- Missing error handling
+- Direct database queries in controllers
+- Business logic mixed with presentation logic
+
+**💡 Always Suggest Improvements:**
+
+- Refactoring opportunities (extract methods, classes)
+- Design pattern applications (Strategy, Factory, Repository)
+- Performance optimizations (caching, lazy loading)
+- Security enhancements (input sanitization, authorization)
+- Maintainability improvements (constants, documentation)
+
+### Constraint Maintenance Best Practice
+
+**For database constraints (@Unique, @Index, etc.):**
+
+- Always add comments explaining which properties the constraint covers
+- Consider creating constraint name constants
+- Test constraints with integration tests
+- Document in code reviews: "Does this property rename affect any constraints?"
+
+Example:
+
+```typescript
+@Unique('unique_seat_per_venue', ['venue', 'section', 'row', 'number'])
+// 🚨 IMPORTANT: Update this array if you rename venue/section/row/number properties!
+```

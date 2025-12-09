@@ -7,34 +7,73 @@ alwaysApply: true
 
 **Goal**: Mid-level → Distributed Systems Engineer by **Jan 5th**
 **Focus**: Backend first → Angular later
+**Progress**: Phase 1/7 Complete ✅ | Foundation SOLID | Ready for DTOs
 
 ---
 
-## Phase 1: Foundation (CURRENT)
+## Phase 1: Foundation ✅ COMPLETED
+
 **Objective**: Build a "Safe" schema that rejects bad data before it enters the system.
 
+**🎉 Achievement**: Production-ready entity model with relationships, constraints, and concurrency control!
+
+**🏆 Key Learnings:**
+
+- TypeORM entity relationships & constraints
+- Optimistic locking for concurrency control
+- DRY patterns with BaseEntity inheritance
+- Type-safe constraint validation with keyof
+- Dynamic modules for dependency management
+- NestJS module loading patterns
+
 ### ✅ Completed
+
 - [x] Project setup with NX monorepo
 - [x] DatabaseModule with TypeORM + PostgreSQL
 - [x] ConfigModule with Zod validation
+- [x] Entity design discussion (Assigned Seating model)
 
-### 🔄 In Progress
-- [ ] **Event entity** - Define fields + `@VersionColumn` for optimistic locking
-- [ ] **Booking entity** - Define fields + `@ManyToOne` relation to Event
-- [ ] **CreateEventDto** - Validation decorators (`@IsString`, `@IsPositive`, etc.)
+### ✅ COMPLETED - All Entities with Advanced Features
+
+- [x] **Venue entity** - id, name, address + @OneToMany(Seat, Event) + Unique(name)
+- [x] **Seat entity** - id, section, row, number + @ManyToOne(Venue) + Unique(venue,section,row,number)
+- [x] **Event entity** - id, name, date, basePrice, status(enum) + @ManyToOne(Venue)
+- [x] **Ticket entity** - id, status(enum), price, version(@VersionColumn) + @ManyToOne(Event,Seat,Booking) + Unique(event,seat)
+- [x] **Booking entity** - id, userId, totalPrice, status(enum) + @OneToMany(Ticket)
+
+#### 🏗️ Advanced Architecture Implemented:
+
+- [x] **BaseEntity** - DRY pattern for id, createdAt, updatedAt
+- [x] **Type-Safe Constraints** - keyof pattern prevents runtime errors
+- [x] **Dynamic Modules** - forRoot() pattern with dependency management
+- [x] **Bidirectional Relationships** - All entities properly linked
+- [x] **Optimistic Locking** - @VersionColumn on Ticket for concurrency control
+- [x] **Enum Types** - TypeScript enums mapped to DB enums
+
+### 📋 Up Next - DTOs & Validation
+
+- [ ] **CreateVenueDto** - Validation decorators
+- [ ] **CreateSeatDto** - Validation decorators
+- [ ] **CreateEventDto** - Validation decorators (+ pre-generate tickets logic)
 - [ ] **CreateBookingDto** - Validation decorators
 
-### 📋 Up Next
-- [ ] **BookingService** - Transaction logic
-  - Decrement `Event.availableTickets` atomically
-  - Create Booking record in same transaction
-- [ ] **EventsService** - CRUD operations for events
+### 📋 Then - Services & Business Logic
+
+- [ ] **VenueService** - CRUD for venues
+- [ ] **SeatService** - CRUD for seats (bulk create for venue)
+- [ ] **EventService** - CRUD + **pre-generate tickets on create**
+- [ ] **TicketService** - Status transitions (AVAILABLE → HELD → SOLD)
+- [ ] **BookingService** - Transaction logic (hold tickets + create booking)
+
+### 📋 Finally - Tests & Constraints
+
 - [ ] **E2E Tests** - Verify booking prevents overselling
-- [ ] **DB Constraints** - `CHECK (availableTickets >= 0)` at DB level
+- [ ] **DB Constraints** - Unique(event, seat) on Ticket
 
 ---
 
-## Phase 2: Distributed Locking
+## Phase 2: DTOs & Validation (CURRENT)
+
 **Objective**: Move locking from DB to Redis for high-traffic scenarios.
 
 - [ ] Docker Compose with Redis
@@ -47,6 +86,7 @@ alwaysApply: true
 ---
 
 ## Phase 3: Resilience
+
 **Objective**: Handle failures gracefully without data corruption.
 
 - [ ] Global Exception Filter
@@ -55,21 +95,23 @@ alwaysApply: true
 - [ ] Retry with exponential backoff
 - [ ] Logging Interceptor (structured logs)
 - [ ] Health checks endpoint
+- [ ] Background job: Expire HELD tickets after timeout
 
 ---
 
-## Phase 4: Async Consistency  
+## Phase 4: Async Consistency
+
 **Objective**: Decouple operations and ensure eventual consistency.
 
 - [ ] BullMQ setup with Redis
 - [ ] Transactional Outbox pattern
 - [ ] Event-driven booking confirmation (email queue)
-- [ ] Saga pattern for multi-step bookings
 - [ ] Dead letter queue handling
 
 ---
 
 ## Phase 5: API Polish & Documentation
+
 **Objective**: Production-ready API surface.
 
 - [ ] Swagger/OpenAPI documentation
@@ -81,9 +123,11 @@ alwaysApply: true
 ---
 
 ## Phase 6: Angular Frontend (Later)
+
 **Objective**: Build UI to visualize the booking flow.
 
 - [ ] Event listing page
+- [ ] Seat map visualization
 - [ ] Real-time ticket availability (WebSockets?)
 - [ ] Booking flow with loading states
 - [ ] Error handling UI
@@ -91,13 +135,50 @@ alwaysApply: true
 
 ---
 
+## Phase 7: Microservices (Stretch Goal)
+
+**Objective**: Split monolith into distributed services for true Trading212-like architecture.
+
+- [ ] **Service Split**:
+  - `ticket-service` - Inventory management (Tickets, Events, Venues)
+  - `booking-service` - Booking orchestration
+  - `payment-service` - Payment processing (mock)
+  - `notification-service` - Email/SMS notifications
+- [ ] **Inter-service Communication**:
+  - Message broker (RabbitMQ or NATS)
+  - gRPC or REST for sync calls
+- [ ] **Saga Pattern** - Orchestrate multi-service bookings with compensating transactions
+- [ ] **API Gateway** - Single entry point, routing, auth
+- [ ] **Service Discovery** - (Optional) Consul or built-in
+- [ ] **Docker Compose** - Run all services locally
+- [ ] **Kubernetes** - (Optional) Deploy to K8s cluster
+
+---
+
+## Architecture Decisions Log
+
+| Decision             | Choice                               | Reason                                              |
+| -------------------- | ------------------------------------ | --------------------------------------------------- |
+| Seating model        | Assigned Seating                     | Better for learning distributed locks               |
+| Ticket creation      | Pre-generate on Event create         | Simpler locking, avoid INSERT race conditions       |
+| Ticket timeout       | Background job                       | Don't slow down reads with timestamp checks         |
+| Optimistic lock      | `@VersionColumn` on Ticket           | Ticket is the unit of contention                    |
+| Entity inheritance   | BaseEntity with common fields        | DRY principle, consistent timestamps                |
+| Constraint safety    | keyof type validation                | Compile-time error prevention                       |
+| Module pattern       | Dynamic modules (forRoot)            | Learning advanced NestJS patterns                   |
+| Relationship loading | Explicit import ordering             | Solve TypeORM entity resolution                     |
+| Saga pattern         | Phase 7 (Microservices)              | Sagas need multiple DBs; monolith uses transactions |
+| Architecture         | Monolith first → Microservices later | Complete working system before splitting            |
+
+---
+
 ## Quick Reference: What NestJS Patterns to Use Where
 
-| Feature | NestJS Pattern | Course Reference |
-|---------|---------------|------------------|
-| BookingService | `@InjectRepository` + Transactions | Section 3: TypeORM |
-| Redis Provider | Factory Provider + `useFactory` | Section 4: DI |
-| DistributedLock | Custom Decorator + Interceptor | Section 6: Building Blocks |
-| Config | `registerAs` + `ConfigType` | Section 5: Configuration |
-| Exception Filter | `@Catch()` + `ExceptionFilter` | Section 6: Building Blocks |
-| Logging | Interceptor + `tap()` | Section 6: Building Blocks |
+| Feature          | NestJS Pattern                     | Course Reference           |
+| ---------------- | ---------------------------------- | -------------------------- |
+| BookingService   | `@InjectRepository` + Transactions | Section 3: TypeORM         |
+| Redis Provider   | Factory Provider + `useFactory`    | Section 4: DI              |
+| DistributedLock  | Custom Decorator + Interceptor     | Section 6: Building Blocks |
+| Config           | `registerAs` + `ConfigType`        | Section 5: Configuration   |
+| Exception Filter | `@Catch()` + `ExceptionFilter`     | Section 6: Building Blocks |
+| Logging          | Interceptor + `tap()`              | Section 6: Building Blocks |

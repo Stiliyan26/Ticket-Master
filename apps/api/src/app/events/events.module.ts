@@ -1,9 +1,19 @@
-import { Module } from '@nestjs/common';
+import { Module, DynamicModule } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { EventsController } from './events.controller';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Event } from './entities/event.entity';
 
-@Module({
-  controllers: [EventsController],
-  providers: [EventsService],
-})
-export class EventsModule {}
+@Module({})
+export class EventsModule {
+  static forRoot(): DynamicModule {
+    return {
+      module: EventsModule,
+      imports: [TypeOrmModule.forFeature([Event])],
+      controllers: [EventsController],
+      providers: [EventsService],
+      exports: [EventsService],
+      global: false,
+    };
+  }
+}
