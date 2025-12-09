@@ -4,10 +4,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { validate } from './config/env.validation';
-import { VenuesModule } from './venues/venues.module';
-import { SeatsModule } from './seats/seats.module';
-import { EventsModule } from './events/events.module';
-import { BookingsModule } from './bookings/bookings.module';
+import { VenuesModule } from './domains/venues/venues.module';
+import { SeatsModule } from './domains/seats/seats.module';
+import { EventsModule } from './domains/events/events.module';
+import { BookingsModule } from './domains/bookings/bookings.module';
 
 @Module({
   imports: [

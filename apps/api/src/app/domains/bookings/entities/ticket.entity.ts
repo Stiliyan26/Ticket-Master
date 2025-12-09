@@ -1,5 +1,5 @@
 import { Column, Entity, ManyToOne, Unique, VersionColumn } from 'typeorm';
-import { BaseEntity } from '../../common/entities/base-entity';
+import { BaseEntity } from '../../../common/entities/base-entity';
 import { Event } from '../../events/entities/event.entity';
 import { Seat } from '../../seats/entities/seat.entity';
 import { Booking } from './booking.entity';

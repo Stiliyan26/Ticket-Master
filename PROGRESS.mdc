@@ -1,0 +1,16 @@
+# PROGRESS
+
+## Current Focus
+
+- Phase 2: DTOs & Validation (per roadmap)
+- Domain modules are grouped under `apps/api/src/app/domains`; infra stays at `apps/api/src/app/{common,config,database}`.
+
+## Checklist
+
+- [x] Move `bookings`, `events`, `seats`, `venues` under `app/domains`
+- [ ] Keep infra modules (`common`, `config`, `database`) isolated from domain code
+- [ ] Update any diagrams/docs to reflect the domain/infra split
+
+## Architecture Decisions Log
+
+- 2025-12-09: Group domain modules under `app/domains`; keep infra (`common`, `config`, `database`) at top-level to separate domain code from infrastructure.

@@ -1,5 +1,5 @@
 import { Column, Entity, ManyToOne, Unique } from 'typeorm';
-import { BaseEntity } from '../../common/entities/base-entity';
+import { BaseEntity } from '../../../common/entities/base-entity';
 import { Venue } from '../../venues/entities/venue.entity';
 
 // Type-safe unique constraint using keyof - catches renames at compile time!

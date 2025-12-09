@@ -7,7 +7,7 @@ alwaysApply: true
 
 **Goal**: Mid-level → Distributed Systems Engineer by **Jan 5th**
 **Focus**: Backend first → Angular later
-**Progress**: Phase 1/7 Complete ✅ | Foundation SOLID | Ready for DTOs
+**Progress**: Phase 1/7 Complete ✅ | DTOs & Validation Complete ✅ | Ready for Services | Backend First → Angular Last
 
 ---
 
@@ -50,14 +50,28 @@ alwaysApply: true
 - [x] **Optimistic Locking** - @VersionColumn on Ticket for concurrency control
 - [x] **Enum Types** - TypeScript enums mapped to DB enums
 
-### 📋 Up Next - DTOs & Validation
+### ✅ COMPLETED - DTOs & Validation
 
-- [ ] **CreateVenueDto** - Validation decorators
-- [ ] **CreateSeatDto** - Validation decorators
-- [ ] **CreateEventDto** - Validation decorators (+ pre-generate tickets logic)
-- [ ] **CreateBookingDto** - Validation decorators
+- [x] **Global ValidationPipe** - Configured in main.ts (whitelist, forbidNonWhitelisted, transform)
+- [x] **CreateVenueDto** - Validation decorators (@IsString, @IsNotEmpty)
+- [x] **UpdateVenueDto** - Uses PartialType(CreateVenueDto)
+- [x] **CreateEventDto** - Validation decorators (name, date, basePrice, venueId) + @IsDateString, @Type(() => Number), @IsUUID(4)
+- [x] **UpdateEventDto** - Uses PartialType(CreateEventDto)
+- [x] **CreateSeatDto** - Validation decorators (section, row, number, venueId) + @Type(() => Number), @IsUUID(4)
+- [x] **UpdateSeatDto** - Uses PartialType(CreateSeatDto)
+- [x] **CreateBookingDto** - Validation decorators (userId, ticketIds array) + @IsUUID(4), @IsArray, @ArrayMinSize(1)
+- [x] **UpdateBookingDto** - Uses PartialType(CreateBookingDto)
 
-### 📋 Then - Services & Business Logic
+#### 🏆 Key Learnings:
+
+- Global ValidationPipe configuration (whitelist, forbidNonWhitelisted, transform)
+- Type conversion with @Type(() => Number) for number fields
+- Array validation with { each: true } for UUID arrays
+- UUID v4 validation consistency (@IsUUID(4))
+- PartialType pattern for UpdateDTOs
+- Decorator execution order (transformation → validation)
+
+### 📋 Next - Services & Business Logic (CURRENT)
 
 - [ ] **VenueService** - CRUD for venues
 - [ ] **SeatService** - CRUD for seats (bulk create for venue)
@@ -72,7 +86,24 @@ alwaysApply: true
 
 ---
 
-## Phase 2: DTOs & Validation (CURRENT)
+## Phase 2: DTOs & Validation ✅ COMPLETED
+
+**Objective**: Build a "Safe" schema that rejects bad data before it enters the system.
+
+**🎉 Achievement**: All DTOs with comprehensive validation decorators, global ValidationPipe configured!
+
+**🏆 Key Learnings:**
+
+- Global ValidationPipe with whitelist, forbidNonWhitelisted, transform
+- Type conversion patterns (@Type(() => Number))
+- Array validation with { each: true }
+- UUID v4 validation consistency
+- PartialType pattern for UpdateDTOs
+- Domain folder structure (domains/ vs infrastructure)
+
+---
+
+## Phase 2: Distributed Locking (CURRENT)
 
 **Objective**: Move locking from DB to Redis for high-traffic scenarios.
 
@@ -101,10 +132,12 @@ alwaysApply: true
 
 ## Phase 4: Async Consistency
 
-**Objective**: Decouple operations and ensure eventual consistency.
+**Objective**: Decouple operations and ensure eventual consistency within the monolith.
+
+**Note**: Outbox pattern and event-driven architecture can be implemented in a monolith using message queues (BullMQ/RabbitMQ). Microservices are NOT required for these patterns - they can be added later when splitting services.
 
 - [ ] BullMQ setup with Redis
-- [ ] Transactional Outbox pattern
+- [ ] Transactional Outbox pattern (monolith - single DB)
 - [ ] Event-driven booking confirmation (email queue)
 - [ ] Dead letter queue handling
 
@@ -122,22 +155,11 @@ alwaysApply: true
 
 ---
 
-## Phase 6: Angular Frontend (Later)
-
-**Objective**: Build UI to visualize the booking flow.
-
-- [ ] Event listing page
-- [ ] Seat map visualization
-- [ ] Real-time ticket availability (WebSockets?)
-- [ ] Booking flow with loading states
-- [ ] Error handling UI
-- [ ] Optimistic UI updates
-
----
-
-## Phase 7: Microservices (Stretch Goal)
+## Phase 6: Microservices
 
 **Objective**: Split monolith into distributed services for true Trading212-like architecture.
+
+**Note**: Complete all backend phases (1-5) before splitting into microservices. This phase comes before Angular to ensure all backend work is done first.
 
 - [ ] **Service Split**:
   - `ticket-service` - Inventory management (Tickets, Events, Venues)
@@ -155,20 +177,40 @@ alwaysApply: true
 
 ---
 
+## Phase 7: Angular Frontend
+
+**Objective**: Build UI to visualize the booking flow.
+
+**Note**: All backend work (Phases 1-6) should be complete before starting the Angular frontend.
+
+- [ ] Event listing page
+- [ ] Seat map visualization
+- [ ] Real-time ticket availability (WebSockets?)
+- [ ] Booking flow with loading states
+- [ ] Error handling UI
+- [ ] Optimistic UI updates
+
+---
+
 ## Architecture Decisions Log
 
-| Decision             | Choice                               | Reason                                              |
-| -------------------- | ------------------------------------ | --------------------------------------------------- |
-| Seating model        | Assigned Seating                     | Better for learning distributed locks               |
-| Ticket creation      | Pre-generate on Event create         | Simpler locking, avoid INSERT race conditions       |
-| Ticket timeout       | Background job                       | Don't slow down reads with timestamp checks         |
-| Optimistic lock      | `@VersionColumn` on Ticket           | Ticket is the unit of contention                    |
-| Entity inheritance   | BaseEntity with common fields        | DRY principle, consistent timestamps                |
-| Constraint safety    | keyof type validation                | Compile-time error prevention                       |
-| Module pattern       | Dynamic modules (forRoot)            | Learning advanced NestJS patterns                   |
-| Relationship loading | Explicit import ordering             | Solve TypeORM entity resolution                     |
-| Saga pattern         | Phase 7 (Microservices)              | Sagas need multiple DBs; monolith uses transactions |
-| Architecture         | Monolith first → Microservices later | Complete working system before splitting            |
+| Decision             | Choice                                   | Reason                                              |
+| -------------------- | ---------------------------------------- | --------------------------------------------------- |
+| Seating model        | Assigned Seating                         | Better for learning distributed locks               |
+| Ticket creation      | Pre-generate on Event create             | Simpler locking, avoid INSERT race conditions       |
+| Ticket timeout       | Background job                           | Don't slow down reads with timestamp checks         |
+| Optimistic lock      | `@VersionColumn` on Ticket               | Ticket is the unit of contention                    |
+| Entity inheritance   | BaseEntity with common fields            | DRY principle, consistent timestamps                |
+| Constraint safety    | keyof type validation                    | Compile-time error prevention                       |
+| Module pattern       | Dynamic modules (forRoot)                | Learning advanced NestJS patterns                   |
+| Relationship loading | Explicit import ordering                 | Solve TypeORM entity resolution                     |
+| Saga pattern         | Phase 6 (Microservices)                  | Sagas need multiple DBs; monolith uses transactions |
+| Architecture         | Monolith first → Microservices → Angular | Complete backend before frontend                    |
+| Outbox pattern       | Phase 4 (Monolith)                       | Can be done in monolith, no microservices required  |
+| Folder structure     | Domain modules under `app/domains`       | Separate domain code from infrastructure            |
+| UUID validation      | @IsUUID(4) consistently                  | Matches TypeORM's @PrimaryGeneratedColumn('uuid')   |
+| Number validation    | @Type(() => Number) + @IsPositive()      | Handles HTTP string → number conversion             |
+| Array validation     | @IsUUID(4, { each: true })               | Validates each element in array                     |
 
 ---
 
