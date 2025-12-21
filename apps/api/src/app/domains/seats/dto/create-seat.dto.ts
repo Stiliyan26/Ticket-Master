@@ -16,7 +16,7 @@ export class CreateSeatDto {
   @IsString()
   readonly row!: string;
 
-  @Type(() => Number)
+  //@Type(() => Number)
   @IsNumber()
   @IsPositive()
   readonly number!: number;

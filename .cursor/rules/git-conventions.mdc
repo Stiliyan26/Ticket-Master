@@ -1,0 +1,321 @@
+---
+description: Git workflow and commit conventions. Reference for version control best practices.
+alwaysApply: false
+---
+
+# Git Conventions
+
+## Commit Message Format
+
+Use **Conventional Commits** format:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+### Types
+
+| Type       | When to Use                  | Example                                       |
+| ---------- | ---------------------------- | --------------------------------------------- |
+| `feat`     | New feature                  | `feat(seats): add bulk create endpoint`       |
+| `fix`      | Bug fix                      | `fix(booking): prevent race condition`        |
+| `docs`     | Documentation                | `docs: update API documentation`              |
+| `refactor` | Code change (no feature/fix) | `refactor(seats): extract validation logic`   |
+| `test`     | Adding/updating tests        | `test(seats): add unit tests for bulk create` |
+| `chore`    | Maintenance tasks            | `chore: update dependencies`                  |
+| `perf`     | Performance improvement      | `perf(tickets): add index on status`          |
+| `style`    | Formatting (no code change)  | `style: fix linting errors`                   |
+
+### Scope (Optional)
+
+The domain or component affected:
+
+- `seats`, `venues`, `events`, `tickets`, `bookings`
+- `auth`, `config`, `db`
+- `api`, `common`
+
+### Examples
+
+```bash
+# Feature
+feat(seats): add bulk create with transaction support
+
+# Bug fix
+fix(booking): handle concurrent ticket updates with optimistic locking
+
+# Refactor
+refactor(common): extract database error handling to utility
+
+# Documentation
+docs(api): add swagger annotations to seats controller
+
+# Multiple changes (use body)
+feat(events): implement ticket pre-generation
+
+- Generate tickets when event is created
+- Set initial status to AVAILABLE
+- Calculate price from event base price
+```
+
+---
+
+## Branch Naming
+
+### Format
+
+```
+<type>/<ticket-id>-<short-description>
+```
+
+### Types
+
+| Prefix      | Purpose                 |
+| ----------- | ----------------------- |
+| `feature/`  | New feature             |
+| `bugfix/`   | Bug fix                 |
+| `hotfix/`   | Critical production fix |
+| `refactor/` | Code improvement        |
+| `docs/`     | Documentation           |
+| `test/`     | Test additions          |
+
+### Examples
+
+```bash
+feature/TM-123-bulk-seat-creation
+bugfix/TM-456-race-condition-booking
+hotfix/TM-789-security-vulnerability
+refactor/TM-101-extract-validation
+```
+
+---
+
+## Branching Strategy
+
+### Git Flow (Simplified)
+
+```
+main (production)
+  └── develop (integration)
+        ├── feature/TM-123-seats
+        ├── feature/TM-124-events
+        └── bugfix/TM-125-fix
+```
+
+### Rules
+
+| Branch      | Purpose               | Merge To             |
+| ----------- | --------------------- | -------------------- |
+| `main`      | Production-ready code | -                    |
+| `develop`   | Integration branch    | `main` (release)     |
+| `feature/*` | New features          | `develop`            |
+| `bugfix/*`  | Bug fixes             | `develop`            |
+| `hotfix/*`  | Critical fixes        | `main` AND `develop` |
+
+---
+
+## Pull Request Guidelines
+
+### PR Title
+
+Same format as commit messages:
+
+```
+feat(seats): add bulk create with transaction support
+```
+
+### PR Description Template
+
+```markdown
+## Description
+
+Brief description of changes.
+
+## Type of Change
+
+- [ ] New feature
+- [ ] Bug fix
+- [ ] Refactoring
+- [ ] Documentation
+
+## Changes Made
+
+- Added X
+- Updated Y
+- Removed Z
+
+## Testing
+
+- [ ] Unit tests added/updated
+- [ ] E2E tests added/updated
+- [ ] Manual testing performed
+
+## Checklist
+
+- [ ] Code follows project style guidelines
+- [ ] Self-review performed
+- [ ] Documentation updated
+- [ ] No new warnings introduced
+```
+
+### PR Size Guidelines
+
+| Size         | Lines Changed | Guideline             |
+| ------------ | ------------- | --------------------- |
+| 🟢 Small     | < 100         | Ideal, easy to review |
+| 🟡 Medium    | 100-300       | Acceptable            |
+| 🔴 Large     | 300-500       | Split if possible     |
+| ⛔ Too Large | > 500         | Must split            |
+
+---
+
+## Git Best Practices
+
+### Do's ✅
+
+```bash
+# Write meaningful commit messages
+git commit -m "feat(seats): add bulk create with transaction support"
+
+# Keep commits atomic (one logical change)
+git add seats.service.ts
+git commit -m "feat(seats): implement bulk create method"
+
+git add seats.service.spec.ts
+git commit -m "test(seats): add tests for bulk create"
+
+# Pull before push
+git pull --rebase origin develop
+git push
+
+# Use interactive rebase to clean history
+git rebase -i HEAD~3
+```
+
+### Don'ts ❌
+
+```bash
+# Vague commit messages
+git commit -m "fix stuff"
+git commit -m "WIP"
+git commit -m "changes"
+
+# Committing generated files
+git add dist/
+git add node_modules/
+
+# Force pushing to shared branches
+git push --force origin develop  # NEVER
+
+# Committing secrets
+git add .env  # NEVER
+```
+
+---
+
+## Useful Git Commands
+
+### Daily Workflow
+
+```bash
+# Start new feature
+git checkout develop
+git pull
+git checkout -b feature/TM-123-description
+
+# Stage and commit
+git add -p                    # Stage interactively
+git commit -m "feat: ..."
+
+# Update from develop
+git fetch origin
+git rebase origin/develop
+
+# Push feature branch
+git push -u origin feature/TM-123-description
+```
+
+### Fixing Mistakes
+
+```bash
+# Undo last commit (keep changes)
+git reset --soft HEAD~1
+
+# Amend last commit message
+git commit --amend -m "new message"
+
+# Discard all local changes
+git checkout -- .
+
+# Stash work in progress
+git stash
+git stash pop
+```
+
+### Reviewing History
+
+```bash
+# Pretty log
+git log --oneline --graph -10
+
+# See what changed
+git diff develop..feature/TM-123
+
+# Blame a file
+git blame seats.service.ts
+```
+
+---
+
+## .gitignore Essentials
+
+```gitignore
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.js.map
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# Secrets
+*.pem
+*.key
+```
+
+---
+
+## Pre-Commit Checks
+
+Before committing, ensure:
+
+- [ ] `npm run lint` passes
+- [ ] `npm run test` passes
+- [ ] No console.log statements
+- [ ] No commented-out code
+- [ ] No secrets in code
+- [ ] Commit message follows convention

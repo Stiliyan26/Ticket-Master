@@ -79,6 +79,14 @@ alwaysApply: true
 - [ ] **TicketService** - Status transitions (AVAILABLE → HELD → SOLD)
 - [ ] **BookingService** - Transaction logic (hold tickets + create booking)
 
+### 📋 After Services - Production Infrastructure
+
+- [ ] **GlobalExceptionFilter** - Standardize all error responses
+- [ ] **TransformInterceptor** - Wrap responses in `{ data: ... }`
+- [ ] **LoggingInterceptor** - Request/response logging with correlation IDs
+- [ ] **TimeoutInterceptor** - Kill long-running requests
+- [ ] **CorrelationIdMiddleware** - Request tracing
+
 ### 📋 Finally - Tests & Constraints
 
 - [ ] **E2E Tests** - Verify booking prevents overselling
@@ -86,24 +94,7 @@ alwaysApply: true
 
 ---
 
-## Phase 2: DTOs & Validation ✅ COMPLETED
-
-**Objective**: Build a "Safe" schema that rejects bad data before it enters the system.
-
-**🎉 Achievement**: All DTOs with comprehensive validation decorators, global ValidationPipe configured!
-
-**🏆 Key Learnings:**
-
-- Global ValidationPipe with whitelist, forbidNonWhitelisted, transform
-- Type conversion patterns (@Type(() => Number))
-- Array validation with { each: true }
-- UUID v4 validation consistency
-- PartialType pattern for UpdateDTOs
-- Domain folder structure (domains/ vs infrastructure)
-
----
-
-## Phase 2: Distributed Locking (CURRENT)
+## Phase 2: Distributed Locking
 
 **Objective**: Move locking from DB to Redis for high-traffic scenarios.
 
@@ -120,13 +111,12 @@ alwaysApply: true
 
 **Objective**: Handle failures gracefully without data corruption.
 
-- [ ] Global Exception Filter
 - [ ] Idempotency Keys (prevent double-booking on retry)
 - [ ] Circuit Breaker pattern (for external services)
 - [ ] Retry with exponential backoff
-- [ ] Logging Interceptor (structured logs)
 - [ ] Health checks endpoint
 - [ ] Background job: Expire HELD tickets after timeout
+- [ ] Rate limiting with @nestjs/throttler
 
 ---
 
@@ -148,7 +138,6 @@ alwaysApply: true
 **Objective**: Production-ready API surface.
 
 - [ ] Swagger/OpenAPI documentation
-- [ ] Rate limiting
 - [ ] API versioning
 - [ ] Request validation pipes (global)
 - [ ] Response serialization interceptor
@@ -211,6 +200,7 @@ alwaysApply: true
 | UUID validation      | @IsUUID(4) consistently                  | Matches TypeORM's @PrimaryGeneratedColumn('uuid')   |
 | Number validation    | @Type(() => Number) + @IsPositive()      | Handles HTTP string → number conversion             |
 | Array validation     | @IsUUID(4, { each: true })               | Validates each element in array                     |
+| Infrastructure       | After services, before Phase 2           | Foundation for all future code                      |
 
 ---
 

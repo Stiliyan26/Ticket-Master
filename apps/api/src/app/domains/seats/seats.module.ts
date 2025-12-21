@@ -1,8 +1,12 @@
-import { Module, DynamicModule } from '@nestjs/common';
+import {
+  Module,
+  DynamicModule,
+} from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Seat } from './entities/seat.entity';
 import { SeatsController } from './seats.controller';
 import { SeatsService } from './seats.service';
+import { VenuesModule } from '../venues/venues.module';
 
 @Module({})
 export class SeatsModule {
@@ -11,7 +15,7 @@ export class SeatsModule {
       module: SeatsModule,
       imports: [
         TypeOrmModule.forFeature([Seat]),
-        // Base entity, no dependencies
+        VenuesModule.forRoot(),
       ],
       controllers: [SeatsController],
       providers: [SeatsService],

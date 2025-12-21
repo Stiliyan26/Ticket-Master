@@ -1,0 +1,190 @@
+---
+description: Best practices for AI-assisted development. How to learn and code faster with AI.
+alwaysApply: false
+---
+
+# AI-Assisted Development
+
+## Core Philosophy
+
+> AI is a **multiplier**, not a replacement. Use it to amplify your skills, not bypass learning.
+
+---
+
+## Effective Prompting Patterns
+
+### The CONTEXT-TASK-RULES Pattern
+
+```
+I'm building [CONTEXT - what you're working on].
+I need to [SPECIFIC TASK - be precise].
+Here's my current code: [CODE or file reference].
+Following these rules: [@coding-standards.mdc, @error-handling.mdc].
+What's the best approach and why?
+```
+
+### Good vs Bad Prompts
+
+| ❌ Bad            | ✅ Good                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| "Write a service" | "Create a NestJS service method that bulk-creates seats for a venue, with transaction support and proper error handling" |
+| "Fix this bug"    | "This method throws 'Cannot read property X'. Here's the code and stack trace. What's the root cause?"                   |
+| "Make it better"  | "Review this code for: 1) N+1 queries, 2) Missing error handling, 3) Violations of our coding-standards.mdc"             |
+
+---
+
+## When to Trust AI
+
+| Trust Level | Scenario                       | Action                                 |
+| ----------- | ------------------------------ | -------------------------------------- |
+| 🟢 High     | Boilerplate, DTOs, simple CRUD | Review quickly, likely correct         |
+| 🟡 Medium   | Business logic, validation     | Review carefully, test edge cases      |
+| 🔴 Low      | Security, auth, transactions   | Verify thoroughly, consult docs        |
+| ⛔ Never    | Crypto, passwords, secrets     | Write yourself or use vetted libraries |
+
+### Red Flags in AI-Generated Code
+
+- [ ] Uses deprecated APIs
+- [ ] Missing error handling
+- [ ] Overly complex solution for simple problem
+- [ ] Doesn't follow project patterns
+- [ ] Security vulnerabilities (SQL injection, XSS)
+- [ ] Missing null/undefined checks
+
+---
+
+## Learning with AI
+
+### Ask for Understanding, Not Just Code
+
+```
+// ❌ Bad - just get code
+"Write a distributed lock implementation"
+
+// ✅ Good - learn while building
+"Explain how distributed locks work in Redis.
+What are the failure modes?
+Then show me a NestJS implementation with Redlock."
+```
+
+### Challenge the AI
+
+| Question                   | Why Ask                                 |
+| -------------------------- | --------------------------------------- |
+| "Is there a better way?"   | AI often gives first solution, not best |
+| "What are the trade-offs?" | Understand pros/cons of approach        |
+| "What could go wrong?"     | Identify edge cases and failures        |
+| "Why this over X?"         | Learn decision-making rationale         |
+
+### Spaced Repetition Pattern
+
+1. **Day 1**: AI helps you build feature
+2. **Day 2**: Try to rebuild without AI, reference when stuck
+3. **Day 7**: Build similar feature from scratch
+4. **Result**: Knowledge moves to long-term memory
+
+---
+
+## Code Review Checklist for AI Code
+
+Before accepting AI-generated code, verify:
+
+### Architecture
+
+- [ ] Follows our `coding-standards.mdc`
+- [ ] Respects module boundaries
+- [ ] Uses proper dependency injection
+- [ ] Doesn't introduce circular dependencies
+
+### Error Handling
+
+- [ ] Follows `error-handling.mdc`
+- [ ] Throws appropriate exceptions
+- [ ] Handles edge cases
+- [ ] Doesn't swallow errors silently
+
+### Security
+
+- [ ] No hardcoded secrets
+- [ ] Input validation present
+- [ ] SQL injection safe (parameterized queries)
+- [ ] No exposed internal details in errors
+
+### Performance
+
+- [ ] No N+1 queries
+- [ ] Appropriate use of transactions
+- [ ] No memory leaks (streams for large data)
+- [ ] Pagination for lists
+
+### Testing
+
+- [ ] Code is testable (dependencies injectable)
+- [ ] Edge cases identified
+- [ ] Error paths covered
+
+---
+
+## AI Tool Integration
+
+### Cursor-Specific Tips
+
+| Feature     | Use Case                            |
+| ----------- | ----------------------------------- |
+| `@file`     | Reference specific file for context |
+| `@folder`   | Reference entire folder             |
+| `@codebase` | Search across codebase              |
+| `@docs`     | Reference documentation             |
+| `@web`      | Search web for current info         |
+
+### Rule File References
+
+Always reference relevant rules in prompts:
+
+```
+Following @coding-standards.mdc and @error-handling.mdc,
+implement the findAll method for SeatsService with pagination.
+```
+
+---
+
+## Anti-Patterns
+
+### Don't Do This
+
+| ❌ Anti-Pattern                       | Why Bad                            | ✅ Instead                      |
+| ------------------------------------- | ---------------------------------- | ------------------------------- |
+| Copy-paste without reading            | Miss bugs, don't learn             | Read, understand, then use      |
+| Ask AI to "fix" without understanding | Won't learn the fix                | Ask "why is this broken?" first |
+| Use AI for everything                 | Lose fundamental skills            | Practice basics without AI      |
+| Skip tests because AI said it works   | AI doesn't test your edge cases    | Always test AI code             |
+| Trust AI on security                  | AI can suggest vulnerable patterns | Verify against OWASP, docs      |
+
+---
+
+## Productivity Workflow
+
+### The 15-Minute Rule
+
+1. **Stuck for 15 min?** → Ask AI for hints (not solution)
+2. **Stuck for 30 min?** → Ask AI for approach options
+3. **Stuck for 1 hour?** → Get AI solution, study it, delete, rebuild
+
+### Daily AI Learning Practice
+
+```
+Morning: Build one feature with AI assistance
+Afternoon: Build similar feature WITHOUT AI
+Evening: Compare approaches, note learnings
+```
+
+---
+
+## Metrics to Track
+
+| Metric                                  | Target     | Why                      |
+| --------------------------------------- | ---------- | ------------------------ |
+| AI suggestions accepted without changes | < 50%      | You should be refining   |
+| Time to understand AI code              | Decreasing | You're learning patterns |
+| Features built without AI               | Increasing | Skills transferring      |
+| Bugs from AI code                       | Decreasing | Better review process    |

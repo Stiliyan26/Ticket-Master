@@ -1,0 +1,329 @@
+---
+description: Testing standards - what to test, how to test, naming conventions.
+alwaysApply: false
+---
+
+# Testing Standards
+
+## Test File Structure
+
+```
+domains/
+└── venues/
+    ├── venues.service.ts
+    ├── venues.service.spec.ts      # Unit tests
+    ├── venues.controller.ts
+    └── venues.controller.spec.ts   # Controller unit tests
+
+apps/api-e2e/src/
+└── venues/
+    └── venues.e2e-spec.ts          # Integration tests
+```
+
+---
+
+## What to Test
+
+### Unit Tests (\*.spec.ts)
+
+| Layer          | What to Test                | Mock       |
+| -------------- | --------------------------- | ---------- |
+| **Service**    | Business logic, validations | Repository |
+| **Controller** | Route mapping, DTO binding  | Service    |
+| **Utils**      | Pure functions              | Nothing    |
+
+### Integration Tests (\*.e2e-spec.ts)
+
+| Scope              | What to Test                     |
+| ------------------ | -------------------------------- |
+| **Happy paths**    | Full request → response cycle    |
+| **DB constraints** | Unique violations, FK violations |
+| **Transactions**   | Rollback on failure              |
+| **Auth flows**     | Unauthorized access              |
+
+---
+
+## Naming Conventions
+
+### Test File Names
+
+```
+{feature}.service.spec.ts     # Unit tests
+{feature}.e2e-spec.ts         # E2E tests
+```
+
+### Test Descriptions
+
+```typescript
+describe('VenuesService', () => {
+  describe('create', () => {
+    it('should create venue when valid data provided', async () => {});
+    it('should throw ConflictException when venue name exists', async () => {});
+    it('should throw BadRequestException when name is empty', async () => {});
+  });
+
+  describe('findOne', () => {
+    it('should return venue when exists', async () => {});
+    it('should throw NotFoundException when venue does not exist', async () => {});
+  });
+});
+```
+
+### Naming Pattern
+
+```
+it('should {expected behavior} when {condition}')
+```
+
+Examples:
+
+- ✅ `it('should throw NotFoundException when venue does not exist')`
+- ❌ `it('test venue not found')`
+- ❌ `it('findOne works')`
+
+---
+
+## Unit Test Structure (AAA Pattern)
+
+```typescript
+it('should create venue when valid data provided', async () => {
+  // Arrange - set up test data and mocks
+  const createVenueDto: CreateVenueDto = {
+    name: 'Test Venue',
+    address: '123 Test St',
+  };
+
+  const expectedVenue = { id: 'uuid', ...createVenueDto };
+
+  mockVenueRepository.create.mockReturnValue(expectedVenue);
+  mockVenueRepository.save.mockResolvedValue(expectedVenue);
+
+  // Act - call the method
+  const result = await service.create(createVenueDto);
+
+  // Assert - verify results
+  expect(result).toEqual(expectedVenue);
+  expect(mockVenueRepository.create).toHaveBeenCalledWith(createVenueDto);
+  expect(mockVenueRepository.save).toHaveBeenCalledWith(expectedVenue);
+});
+```
+
+---
+
+## Mocking Patterns
+
+### Repository Mock Factory
+
+```typescript
+export const createMockRepository = <T>() => ({
+  find: jest.fn(),
+  findOne: jest.fn(),
+  findAndCount: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  manager: {
+    transaction: jest.fn(),
+  },
+});
+
+// Usage
+const mockRepository = createMockRepository<Venue>();
+```
+
+### Test Module Setup
+
+```typescript
+describe('VenuesService', () => {
+  let service: VenuesService;
+  let mockVenueRepository: ReturnType<typeof createMockRepository<Venue>>;
+
+  beforeEach(async () => {
+    mockVenueRepository = createMockRepository<Venue>();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        VenuesService,
+        {
+          provide: getRepositoryToken(Venue),
+          useValue: mockVenueRepository,
+        },
+      ],
+    }).compile();
+
+    service = module.get<VenuesService>(VenuesService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+});
+```
+
+---
+
+## Testing Exceptions
+
+```typescript
+it('should throw NotFoundException when venue does not exist', async () => {
+  // Arrange
+  mockVenueRepository.findOne.mockResolvedValue(null);
+
+  // Act & Assert
+  await expect(service.findOne('non-existent-id')).rejects.toThrow(
+    NotFoundException
+  );
+});
+
+// With message verification
+it('should throw with correct message', async () => {
+  mockVenueRepository.findOne.mockResolvedValue(null);
+
+  await expect(service.findOne('abc-123')).rejects.toThrow(
+    "Venue with ID 'abc-123' not found"
+  );
+});
+```
+
+---
+
+## Testing Transactions
+
+```typescript
+it('should rollback transaction on failure', async () => {
+  // Arrange
+  const mockManager = {
+    save: jest
+      .fn()
+      .mockResolvedValueOnce(savedEntity) // First save succeeds
+      .mockRejectedValueOnce(new Error()), // Second save fails
+    find: jest.fn(),
+  };
+
+  mockRepository.manager.transaction.mockImplementation(async (cb) =>
+    cb(mockManager)
+  );
+
+  // Act & Assert
+  await expect(service.createBooking(dto)).rejects.toThrow();
+
+  // Verify first save was rolled back (transaction failed)
+});
+```
+
+---
+
+## E2E Test Structure
+
+```typescript
+describe('Venues (e2e)', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    const moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  describe('POST /venues', () => {
+    it('should create venue and return 201', () => {
+      return request(app.getHttpServer())
+        .post('/venues')
+        .send({ name: 'Test Venue', address: '123 St' })
+        .expect(201)
+        .expect((res) => {
+          expect(res.body.data.id).toBeDefined();
+          expect(res.body.data.name).toBe('Test Venue');
+        });
+    });
+
+    it('should return 400 when name missing', () => {
+      return request(app.getHttpServer())
+        .post('/venues')
+        .send({ address: '123 St' })
+        .expect(400);
+    });
+
+    it('should return 409 when venue name exists', async () => {
+      // Create first venue
+      await request(app.getHttpServer())
+        .post('/venues')
+        .send({ name: 'Duplicate', address: '123 St' });
+
+      // Try duplicate
+      return request(app.getHttpServer())
+        .post('/venues')
+        .send({ name: 'Duplicate', address: '456 St' })
+        .expect(409);
+    });
+  });
+});
+```
+
+---
+
+## Test Data Factories
+
+```typescript
+// test/factories/venue.factory.ts
+export const createVenueData = (
+  overrides: Partial<CreateVenueDto> = {}
+): CreateVenueDto => ({
+  name: `Test Venue ${Date.now()}`,
+  address: '123 Test Street',
+  ...overrides,
+});
+
+export const createVenueEntity = (overrides: Partial<Venue> = {}): Venue => ({
+  id: 'test-uuid',
+  name: 'Test Venue',
+  address: '123 Test Street',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  seats: [],
+  events: [],
+  ...overrides,
+});
+```
+
+---
+
+## Coverage Expectations
+
+| Type            | Target          | Enforced |
+| --------------- | --------------- | -------- |
+| **Services**    | 80%+            | Yes      |
+| **Controllers** | 60%+            | Yes      |
+| **Utils**       | 90%+            | Yes      |
+| **E2E**         | All happy paths | Yes      |
+
+### Must-Test Scenarios
+
+- [ ] All service methods have unit tests
+- [ ] All error paths tested (NotFoundException, etc.)
+- [ ] Unique constraint violations tested (E2E)
+- [ ] Foreign key violations tested (E2E)
+- [ ] Transaction rollback tested
+- [ ] Pagination edge cases (empty, last page)
+
+---
+
+## Anti-Patterns
+
+| ❌ Avoid                              | ✅ Instead               |
+| ------------------------------------- | ------------------------ |
+| Testing implementation details        | Test behavior            |
+| Testing private methods               | Test through public API  |
+| Hitting real database in unit tests   | Mock repository          |
+| Hardcoded test data                   | Use factories            |
+| Single assertion per test (excessive) | Group related assertions |
+| Testing framework code                | Test YOUR code           |

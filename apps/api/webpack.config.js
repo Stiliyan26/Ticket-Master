@@ -2,6 +2,8 @@ const { NxAppWebpackPlugin } = require('@nx/webpack/app-plugin');
 const { join } = require('path');
 
 module.exports = {
+  // Enable source maps for debugging
+  devtool: process.env.NODE_ENV !== 'production' ? 'source-map' : false,
   output: {
     path: join(__dirname, 'dist'),
     clean: true,

@@ -1,4 +1,3 @@
-import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsNotEmpty,
@@ -17,7 +16,7 @@ export class CreateEventDto {
   @IsDateString()
   readonly date!: string;
 
-  @Type(() => Number)
+  // @Type(() => Number) removed - now handled globally
   @IsNumber()
   @IsPositive()
   readonly basePrice!: number;

@@ -3,13 +3,24 @@
 ## Current Focus
 
 - Phase 2: DTOs & Validation (per roadmap)
+- Hardening seats domain: transactional bulk create + pagination for list endpoints
 - Domain modules are grouped under `apps/api/src/app/domains`; infra stays at `apps/api/src/app/{common,config,database}`.
+- Formatting rule: add a blank line after each statement (except directly before control blocks).
+- Type inference rule: allow TypeScript to infer return types for functions and methods when clear and safe (not `any`).
 
 ## Checklist
 
 - [x] Move `bookings`, `events`, `seats`, `venues` under `app/domains`
 - [ ] Keep infra modules (`common`, `config`, `database`) isolated from domain code
 - [ ] Update any diagrams/docs to reflect the domain/infra split
+- [x] Seats: wrap bulk create in a transaction to avoid partial writes
+- [x] Seats: add pagination with deterministic ordering for list endpoint
+- [ ] Mentorship: Re-implement `SeatsService` from scratch
+  - [ ] Implement `create` (Bulk, Transactional, Validation)
+  - [ ] Implement `findAll` (Paginated, Deterministic)
+  - [ ] Implement `findOne`
+  - [ ] Implement `update` (Optimized)
+  - [ ] Implement `remove`
 
 ## Architecture Decisions Log
 

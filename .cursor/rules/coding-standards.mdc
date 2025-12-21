@@ -1,0 +1,244 @@
+---
+description: Core coding standards for naming, formatting, structure, and best practices.
+alwaysApply: true
+---
+
+# Coding Standards
+
+## File & Folder Structure
+
+```
+apps/api/src/app/
+├── common/                    # Shared utilities, base classes, constants
+│   ├── constants/
+│   ├── decorators/
+│   ├── entities/              # BaseEntity
+│   ├── filters/               # Global exception filters
+│   ├── interceptors/
+│   ├── guards/
+│   └── utils/
+├── config/                    # App configuration
+├── database/                  # Database module
+└── domains/                   # Feature modules (one per aggregate root)
+    └── {domain}/
+        ├── constants/         # Domain-specific constants
+        ├── dto/               # Request/Response DTOs
+        ├── entities/          # TypeORM entities
+        ├── {domain}.controller.ts
+        ├── {domain}.service.ts
+        ├── {domain}.module.ts
+        └── {domain}.controller.spec.ts
+```
+
+### Rules
+
+- **One domain = one folder** under `domains/`
+- **Never import from sibling domains directly** - use module exports
+- **Max 200 lines per file** - split if larger
+- **Max 30 lines per method** - extract helper methods if larger
+
+---
+
+## Naming Conventions
+
+| Type              | Convention                            | Example                     |
+| ----------------- | ------------------------------------- | --------------------------- |
+| Files             | `kebab-case`                          | `create-seat.dto.ts`        |
+| Classes           | `PascalCase`                          | `SeatsService`              |
+| Interfaces        | `PascalCase` (no `I` prefix)          | `SeatResponse`              |
+| Variables/Methods | `camelCase`                           | `findAvailableSeats`        |
+| Constants         | `SCREAMING_SNAKE_CASE`                | `MAX_BATCH_SIZE`            |
+| Enums             | `PascalCase` (values too)             | `TicketStatus.Available`    |
+| Booleans          | `is`, `has`, `should`, `can` prefix   | `isActive`, `hasPermission` |
+| Private methods   | No `_` prefix (use `private` keyword) | `private validateInput()`   |
+
+---
+
+## Import Ordering
+
+```typescript
+// 1. NestJS core imports
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+
+// 2. Third-party imports
+import { Repository } from 'typeorm';
+
+// 3. Local imports - absolute paths
+import { handleDatabaseError } from '../../common/utils/database-error.util';
+
+// 4. Local imports - relative paths (same module)
+import { CreateSeatDto } from './dto/create-seat.dto';
+import { Seat } from './entities/seat.entity';
+```
+
+---
+
+## Formatting Rules
+
+### Blank Lines
+
+- **After each statement** (const, let, return, assignments)
+- **Exception**: Control structures (`if`, `for`, `while`) - no blank line before block
+
+```typescript
+// ✅ Good
+const venue = await this.findOne(id);
+
+if (!venue) {
+  throw new NotFoundException();
+}
+
+return venue;
+
+// ❌ Bad
+const venue = await this.findOne(id);
+if (!venue) {
+  throw new NotFoundException();
+}
+return venue;
+```
+
+### Early Returns (Guard Clauses)
+
+Flatten nested conditions:
+
+```typescript
+// ✅ Good
+async findOne(id: string): Promise<Venue> {
+  const venue = await this.venueRepository.findOne({ where: { id } });
+
+  if (!venue) {
+    throw new NotFoundException(`Venue ${id} not found`);
+  }
+
+  return venue;
+}
+
+// ❌ Bad
+async findOne(id: string): Promise<Venue> {
+  const venue = await this.venueRepository.findOne({ where: { id } });
+
+  if (venue) {
+    return venue;
+  } else {
+    throw new NotFoundException(`Venue ${id} not found`);
+  }
+}
+```
+
+---
+
+## SOLID Principles
+
+### Single Responsibility
+
+- **Controllers**: HTTP only (status codes, headers, routing)
+- **Services**: Business logic only (no HTTP concepts)
+- **Repositories**: Data access only (no business rules)
+
+### Dependency Injection
+
+- Always use constructor injection
+- Never use `new` for services (let NestJS inject)
+- Use interfaces for external dependencies (testability)
+
+### Open/Closed
+
+- Use Strategy pattern for swappable behaviors
+- Prefer composition over inheritance
+
+---
+
+## Code Quality Rules
+
+### Type Safety & Inference
+
+- **Return Type Inference**: Allow TypeScript to infer return types for functions and methods when the implementation clearly defines the type and it doesn't result in `any`. This reduces boilerplate while maintaining safety.
+
+```typescript
+// ✅ Good (Inferred)
+async findAll() {
+  return this.seatRepository.find(); // Inferred as Promise<Seat[]>
+}
+
+// ❌ Bad (Leads to any)
+async getData(id: string) {
+  const result = await someExternalApi(id);
+  return result; // If result is any, this is bad
+}
+```
+
+### Constants Over Magic Values
+
+```typescript
+// ✅ Good
+if (dtos.length > SEAT_LIMITS.MAX_BATCH_SIZE) {
+  throw new BadRequestException(SEAT_ERROR_MESSAGES.BATCH_TOO_LARGE);
+}
+
+// ❌ Bad
+if (dtos.length > 1000) {
+  throw new BadRequestException('Batch too large');
+}
+```
+
+### Extract Complex Logic
+
+```typescript
+// ✅ Good
+private getUniqueVenueIds(dtos: CreateSeatDto[]): string[] {
+  return [...new Set(dtos.map((dto) => dto.venueId))];
+}
+
+// ❌ Bad (inline complex logic)
+const venueIds = [...new Set(dtos.map((d) => d.venueId))];
+```
+
+### Avoid Nested Callbacks
+
+```typescript
+// ✅ Good - async/await
+const venue = await this.venueRepository.findOne({ where: { id } });
+const seats = await this.seatRepository.find({ where: { venue } });
+
+// ❌ Bad - nested promises
+this.venueRepository.findOne({ where: { id } }).then((venue) => {
+  this.seatRepository.find({ where: { venue } }).then((seats) => {
+    // ...
+  });
+});
+```
+
+---
+
+## Anti-Patterns to Flag
+
+| Anti-Pattern                 | Why Bad               | Fix                            |
+| ---------------------------- | --------------------- | ------------------------------ |
+| God class (>300 lines)       | Hard to test/maintain | Split by responsibility        |
+| Magic numbers/strings        | Unclear meaning       | Use named constants            |
+| Deep nesting (>3 levels)     | Hard to read          | Early returns, extract methods |
+| Business logic in controller | Violates SRP          | Move to service                |
+| Direct DB in controller      | Skips validation      | Use service layer              |
+| `any` type                   | Loses type safety     | Define proper types            |
+| Commented-out code           | Clutters codebase     | Delete (use git history)       |
+
+---
+
+## TypeORM Specific
+
+### ✅ Do
+
+- Use `@InjectRepository()` in services
+- Define bidirectional relationships explicitly
+- Use `@Index()` on frequently queried columns
+- Use `@VersionColumn()` for optimistic locking
+- Add database-level constraints (`@Unique`, `@Check`)
+
+### ❌ Don't
+
+- Use `eager: true` (explicit `relations` in queries)
+- Use `synchronize: true` in production
+- Access repositories in controllers
+- Use raw queries without parameterization

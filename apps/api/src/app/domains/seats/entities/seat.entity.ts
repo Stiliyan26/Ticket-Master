@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, Unique } from 'typeorm';
+import { Column, Entity, Index, ManyToOne, Unique } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base-entity';
 import { Venue } from '../../venues/entities/venue.entity';
 
@@ -13,6 +13,7 @@ type SeatUniqueFields = keyof Pick<
   'row',
   'number',
 ] as SeatUniqueFields[])
+@Index('idx_seats_venue_section', ['venue', 'section'])
 @Entity('seats')
 export class Seat extends BaseEntity {
   @Column()

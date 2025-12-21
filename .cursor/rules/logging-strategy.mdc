@@ -1,0 +1,268 @@
+---
+description: Logging strategy - what to log, log levels, structured logging.
+alwaysApply: false
+---
+
+# Logging Strategy
+
+## Log Levels
+
+| Level     | When to Use                            | Example                                   |
+| --------- | -------------------------------------- | ----------------------------------------- |
+| `error`   | Unexpected failures, needs attention   | DB connection failed, unhandled exception |
+| `warn`    | Recoverable issues, potential problems | Retry succeeded, deprecated usage         |
+| `log`     | Important business events              | Booking created, payment processed        |
+| `debug`   | Development troubleshooting            | Method entry/exit, variable values        |
+| `verbose` | Detailed tracing                       | Every DB query, full request/response     |
+
+### Production Settings
+
+```typescript
+// main.ts
+const app = await NestFactory.create(AppModule, {
+  logger:
+    process.env.NODE_ENV === 'production'
+      ? ['error', 'warn', 'log']
+      : ['error', 'warn', 'log', 'debug', 'verbose'],
+});
+```
+
+---
+
+## What to Log
+
+### ✅ DO Log
+
+| Event                                | Level   | Example                               |
+| ------------------------------------ | ------- | ------------------------------------- |
+| Service method entry (important ops) | `debug` | `Creating booking for user ${userId}` |
+| Business event completion            | `log`   | `Booking ${id} created successfully`  |
+| External service calls               | `debug` | `Calling payment gateway`             |
+| Retry attempts                       | `warn`  | `Retry 2/3 for payment processing`    |
+| Validation failures (bulk)           | `warn`  | `3 of 10 seats failed validation`     |
+| Unexpected errors                    | `error` | `Database connection failed`          |
+| Performance metrics                  | `log`   | `Bulk insert of 500 seats took 1.2s`  |
+
+### ❌ NEVER Log
+
+| Data Type                     | Why                    |
+| ----------------------------- | ---------------------- |
+| Passwords                     | Security               |
+| API keys / tokens             | Security               |
+| Credit card numbers           | PCI compliance         |
+| Personal data (email, phone)  | GDPR                   |
+| Full request bodies (in prod) | Performance + security |
+| SQL queries with values       | Security               |
+
+---
+
+## Logger Setup
+
+### Inject Logger Per Service
+
+```typescript
+@Injectable()
+export class SeatsService {
+  private readonly logger = new Logger(SeatsService.name);
+
+  async create(dtos: CreateSeatDto[]) {
+    this.logger.log(`Creating ${dtos.length} seats`);
+
+    // ... implementation
+
+    this.logger.log(`Successfully created ${dtos.length} seats`);
+  }
+}
+```
+
+### Consistent Context
+
+```typescript
+// ✅ Good - includes context
+this.logger.log(`Booking ${bookingId} created for user ${userId}`);
+
+// ❌ Bad - no context
+this.logger.log('Booking created');
+```
+
+---
+
+## Structured Logging Pattern
+
+For production, use structured logs (JSON):
+
+```typescript
+// logging.interceptor.ts
+@Injectable()
+export class LoggingInterceptor implements NestInterceptor {
+  private readonly logger = new Logger('HTTP');
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const request = context.switchToHttp().getRequest();
+    const { method, url } = request;
+    const startTime = Date.now();
+
+    return next.handle().pipe(
+      tap(() => {
+        const duration = Date.now() - startTime;
+
+        this.logger.log({
+          method,
+          url,
+          duration,
+          statusCode: context.switchToHttp().getResponse().statusCode,
+        });
+      })
+    );
+  }
+}
+```
+
+### Log Format (Production)
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "level": "log",
+  "context": "SeatsService",
+  "message": "Creating 50 seats",
+  "metadata": {
+    "venueId": "uuid-123",
+    "batchSize": 50
+  }
+}
+```
+
+---
+
+## Error Logging
+
+### Capture Stack Traces
+
+```typescript
+try {
+  await this.externalService.call();
+} catch (error) {
+  this.logger.error(
+    `Payment processing failed for booking ${bookingId}`,
+    error.stack // Include stack trace
+  );
+
+  throw new InternalServerErrorException('Payment failed');
+}
+```
+
+### Error Context
+
+```typescript
+// ✅ Good - actionable error log
+this.logger.error(`Failed to create seat: venue ${venueId} not found`, {
+  venueId,
+  seatData: { section, row, number }, // Safe data only
+});
+
+// ❌ Bad - no context
+this.logger.error('Failed to create seat');
+```
+
+---
+
+## Correlation IDs
+
+Track requests across services:
+
+```typescript
+// correlation-id.middleware.ts
+@Injectable()
+export class CorrelationIdMiddleware implements NestMiddleware {
+  use(req: Request, res: Response, next: NextFunction) {
+    const correlationId = req.headers['x-correlation-id'] || uuid();
+
+    req['correlationId'] = correlationId;
+    res.setHeader('x-correlation-id', correlationId);
+
+    next();
+  }
+}
+```
+
+### Include in Logs
+
+```typescript
+this.logger.log({
+  correlationId: request.correlationId,
+  message: 'Processing booking',
+  bookingId,
+});
+```
+
+---
+
+## Performance Logging
+
+### Time Critical Operations
+
+```typescript
+async bulkCreate(dtos: CreateSeatDto[]): Promise<Seat[]> {
+  const startTime = Date.now();
+
+  this.logger.debug(`Starting bulk create of ${dtos.length} seats`);
+
+  const result = await this.seatRepository.save(entities);
+
+  const duration = Date.now() - startTime;
+
+  this.logger.log(`Bulk created ${result.length} seats in ${duration}ms`);
+
+  if (duration > 5000) {
+    this.logger.warn(`Slow bulk insert: ${duration}ms for ${dtos.length} seats`);
+  }
+
+  return result;
+}
+```
+
+---
+
+## Log Sampling (High Traffic)
+
+For high-traffic endpoints, sample logs:
+
+```typescript
+// Only log 1% of requests
+if (Math.random() < 0.01) {
+  this.logger.debug(`Health check from ${ip}`);
+}
+```
+
+---
+
+## Anti-Patterns
+
+| ❌ Avoid                        | ✅ Instead                   |
+| ------------------------------- | ---------------------------- |
+| `console.log()`                 | Use NestJS `Logger`          |
+| Logging inside loops            | Log summary after loop       |
+| Logging sensitive data          | Mask or omit                 |
+| `catch (e) { logger.error(e) }` | Include context + stack      |
+| Logging every DB query          | Use TypeORM logging config   |
+| String concatenation            | Template literals or objects |
+
+---
+
+## Quick Reference
+
+```typescript
+// Import
+import { Logger } from '@nestjs/common';
+
+// Initialize
+private readonly logger = new Logger(MyService.name);
+
+// Usage
+this.logger.error('Critical failure', error.stack);
+this.logger.warn('Deprecated method called');
+this.logger.log('User registered successfully');
+this.logger.debug('Processing started');
+this.logger.verbose('Detailed trace info');
+```

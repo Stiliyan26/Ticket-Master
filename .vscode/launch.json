@@ -2,20 +2,51 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "🐛 Debug NestJS (Direct)",
       "type": "node",
       "request": "launch",
-      "name": "Debug @ticket-master/api with Nx",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["nx", "serve", "@ticket-master/api"],
-      "env": {
-        "NODE_OPTIONS": "--inspect=9229"
-      },
+      "program": "${workspaceFolder}/apps/api/dist/main.js",
+      "cwd": "${workspaceFolder}/apps/api",
       "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"],
       "sourceMaps": true,
-      "outFiles": [
-        "${workspaceFolder}/apps/api/dist/**/*.(m|c|)js",
+      "outFiles": ["${workspaceFolder}/apps/api/dist/**/*.js"],
+      "preLaunchTask": "build-api",
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "🐛 Debug NestJS (NX Serve)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["nx", "serve", "api"],
+      "cwd": "${workspaceFolder}/apps/api",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/apps/api/dist/**/*.js"],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "Attach to NestJS API",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "cwd": "${workspaceFolder}/apps/api",
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/apps/api/dist/**/*.js"],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
         "!**/node_modules/**"
       ]
     }

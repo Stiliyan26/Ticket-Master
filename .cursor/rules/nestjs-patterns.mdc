@@ -1,0 +1,333 @@
+---
+description: NestJS patterns and best practices from Fundamentals course. Reference during implementation.
+alwaysApply: false
+---
+
+# NestJS Patterns Reference
+
+> 📚 Reference material from NestJS Fundamentals course. Not auto-applied - consult when needed.
+
+---
+
+## Response Handling
+
+**Avoid platform dependency** - don't use `res` object directly.
+
+```typescript
+// ✅ Good
+@Post()
+@HttpCode(HttpStatus.CREATED)
+create(@Body() dto: CreateDto) {
+  return this.service.create(dto);
+}
+
+// ❌ Bad - platform dependent
+@Post()
+create(@Res() res: Response, @Body() dto: CreateDto) {
+  res.status(201).json(data);
+}
+```
+
+**Exception**: Use `@Res({ passthrough: true })` only when you MUST access response.
+
+---
+
+## Validation Pipeline
+
+Global configuration for security:
+
+```typescript
+// main.ts
+app.useGlobalPipes(
+  new ValidationPipe({
+    whitelist: true, // Strip unknown properties
+    forbidNonWhitelisted: true, // Throw on unknown properties
+    transform: true, // Auto-transform to DTO class
+  })
+);
+```
+
+⚠️ `transform: true` has slight performance impact.
+
+---
+
+## DTO Patterns
+
+### Basic DTO
+
+```typescript
+export class CreateEventDto {
+  @IsString()
+  @IsNotEmpty()
+  readonly name: string;
+
+  @Type(() => Number)
+  @IsPositive()
+  readonly ticketCount: number;
+}
+```
+
+### Mapped Types
+
+```typescript
+// All fields optional + validation copied
+export class UpdateEventDto extends PartialType(CreateEventDto) {}
+
+// Pick specific fields
+export class EventNameDto extends PickType(CreateEventDto, ['name']) {}
+
+// Omit fields
+export class EventWithoutIdDto extends OmitType(CreateEventDto, ['id']) {}
+
+// Combine DTOs
+export class FullEventDto extends IntersectionType(
+  CreateEventDto,
+  EventMetaDto
+) {}
+```
+
+---
+
+## TypeORM Patterns
+
+### Entity Registration
+
+```typescript
+// Module
+@Module({
+  imports: [TypeOrmModule.forFeature([Coffee])],
+  providers: [CoffeesService],
+})
+export class CoffeesModule {}
+
+// Service
+@Injectable()
+export class CoffeesService {
+  constructor(
+    @InjectRepository(Coffee)
+    private readonly coffeeRepository: Repository<Coffee>
+  ) {}
+}
+```
+
+### Relations
+
+| Relation                    | JoinTable?               |
+| --------------------------- | ------------------------ |
+| `@OneToMany` / `@ManyToOne` | ❌ Never                 |
+| `@ManyToMany`               | ✅ One side only (owner) |
+
+### Cascading
+
+```typescript
+@OneToMany(() => Ticket, (ticket) => ticket.event, { cascade: true })
+tickets: Ticket[];
+```
+
+⚠️ Be careful - cascade can have unintended side effects.
+
+---
+
+## Dependency Injection
+
+### Provider Patterns
+
+```typescript
+// useValue - swap implementations (testing)
+{
+  provide: CoffeesService,
+  useValue: new MockCoffeesService(),
+}
+
+// useClass - environment-based
+{
+  provide: ConfigService,
+  useClass: process.env.NODE_ENV === 'development'
+    ? DevConfigService
+    : ProdConfigService,
+}
+
+// useFactory - dynamic creation
+{
+  provide: 'CONNECTION',
+  useFactory: async (config: ConfigService) => {
+    return new DataSource(config.get('database'));
+  },
+  inject: [ConfigService],
+}
+```
+
+### Injection Scopes
+
+| Scope                 | Lifetime                      |
+| --------------------- | ----------------------------- |
+| `Singleton` (default) | One instance for entire app   |
+| `Scope.TRANSIENT`     | New instance per injection    |
+| `Scope.REQUEST`       | New instance per HTTP request |
+
+---
+
+## Dynamic Modules
+
+```typescript
+export class DatabaseModule {
+  static forRoot(options: DatabaseOptions): DynamicModule {
+    return {
+      module: DatabaseModule,
+      global: true,
+      providers: [
+        {
+          provide: 'DATABASE_OPTIONS',
+          useValue: options,
+        },
+        DatabaseService,
+      ],
+      exports: [DatabaseService],
+    };
+  }
+}
+```
+
+### Async Configuration
+
+```typescript
+// Use when config depends on other modules
+TypeOrmModule.forRootAsync({
+  imports: [ConfigModule],
+  useFactory: (config: ConfigService) => ({
+    type: 'postgres',
+    host: config.get('DB_HOST'),
+    // ...
+  }),
+  inject: [ConfigService],
+});
+```
+
+---
+
+## Request Lifecycle
+
+```
+Middleware
+    ↓
+Guards
+    ↓
+Interceptors (before)
+    ↓
+Pipes
+    ↓
+Route Handler
+    ↓
+Interceptors (after)
+    ↓
+Exception Filters (on error)
+```
+
+---
+
+## Interceptors
+
+Capabilities:
+
+- Add behavior without modifying existing code
+- Bind logic before/after method execution
+- Transform results or exceptions
+- Override methods conditionally (caching)
+
+```typescript
+@Injectable()
+export class TransformInterceptor<T>
+  implements NestInterceptor<T, Response<T>>
+{
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler
+  ): Observable<Response<T>> {
+    return next.handle().pipe(map((data) => ({ data })));
+  }
+}
+```
+
+---
+
+## Pipes
+
+Two use cases:
+
+1. **Transformation** - convert input data
+2. **Validation** - validate input data
+
+```typescript
+// Built-in
+@Get(':id')
+findOne(@Param('id', ParseIntPipe) id: number) {}
+
+// Custom
+@Injectable()
+export class ValidationPipe implements PipeTransform {
+  transform(value: any, metadata: ArgumentMetadata) {
+    // validate and transform
+    return value;
+  }
+}
+```
+
+---
+
+## Custom Decorators
+
+```typescript
+// Extract data from request
+export const Protocol = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext): string => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.protocol;
+  },
+);
+
+// Usage
+@Get()
+findAll(@Protocol() protocol: string) {}
+```
+
+---
+
+## Config Best Practices
+
+### Type-Safe Config
+
+```typescript
+// config/database.config.ts
+export default registerAs('database', () => ({
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT, 10),
+}));
+
+// Usage with type safety
+constructor(
+  @Inject(databaseConfig.KEY)
+  private dbConfig: ConfigType<typeof databaseConfig>,
+) {
+  console.log(this.dbConfig.host); // Type-safe!
+}
+```
+
+### Validation at Startup
+
+Use Joi or Zod to validate env vars - fail fast!
+
+```typescript
+ConfigModule.forRoot({
+  validationSchema: Joi.object({
+    DB_HOST: Joi.string().required(),
+    DB_PORT: Joi.number().default(5432),
+  }),
+});
+```
+
+---
+
+## CLI Tips
+
+- Use `--dry-run` to preview generated files
+- Use `nest g resource {name}` for full CRUD scaffolding

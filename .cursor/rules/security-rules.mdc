@@ -1,0 +1,277 @@
+---
+description: Security best practices. Reference when implementing auth, validation, or handling sensitive data.
+alwaysApply: false
+---
+
+# Security Rules
+
+## Input Validation
+
+### Never Trust User Input
+
+```typescript
+// ✅ Always use DTOs with class-validator
+@Post()
+create(@Body() dto: CreateBookingDto) {
+  // dto is validated before reaching here
+}
+
+// ❌ Never use raw body
+@Post()
+create(@Body() body: any) {
+  // Dangerous - no validation
+}
+```
+
+### Validation Layers
+
+| Layer    | What to Validate              | Tool                |
+| -------- | ----------------------------- | ------------------- |
+| DTO      | Type, format, required fields | class-validator     |
+| Service  | Business rules, permissions   | Custom logic        |
+| Database | Constraints, uniqueness       | TypeORM constraints |
+
+---
+
+## SQL Injection Prevention
+
+### Always Use Parameterized Queries
+
+```typescript
+// ✅ Good - parameterized
+const user = await this.userRepository.findOne({
+  where: { email: userEmail },
+});
+
+// ✅ Good - QueryBuilder with parameters
+const results = await this.repository
+  .createQueryBuilder('ticket')
+  .where('ticket.status = :status', { status: TicketStatus.Available })
+  .getMany();
+
+// ❌ NEVER - string interpolation
+const results = await this.repository.query(
+  `SELECT * FROM users WHERE email = '${userEmail}'`
+);
+```
+
+---
+
+## Authentication & Authorization
+
+### Guard Patterns
+
+```typescript
+// Controller-level protection
+@UseGuards(JwtAuthGuard)
+@Controller('bookings')
+export class BookingsController {}
+
+// Method-level protection
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+@Delete(':id')
+remove(@Param('id') id: string) {}
+```
+
+### Role-Based Access Control (RBAC)
+
+```typescript
+// Define roles
+export enum UserRole {
+  User = 'user',
+  Admin = 'admin',
+  Operator = 'operator',
+}
+
+// Protect routes
+@Roles(UserRole.Admin)
+@UseGuards(RolesGuard)
+```
+
+---
+
+## Secrets Management
+
+### Environment Variables
+
+```typescript
+// ✅ Good - from environment
+const dbPassword = this.configService.get('DB_PASSWORD');
+
+// ❌ Never - hardcoded
+const dbPassword = 'super_secret_123';
+```
+
+### .env Files
+
+```bash
+# ✅ .env.example (commit this)
+DB_PASSWORD=your_password_here
+JWT_SECRET=your_secret_here
+
+# ❌ .env (NEVER commit)
+DB_PASSWORD=actual_production_password
+JWT_SECRET=actual_secret
+```
+
+### .gitignore Must Include
+
+```
+.env
+.env.local
+.env.production
+*.pem
+*.key
+```
+
+---
+
+## Rate Limiting
+
+### Apply to All Public Endpoints
+
+```typescript
+// main.ts or app.module.ts
+import { ThrottlerModule } from '@nestjs/throttler';
+
+@Module({
+  imports: [
+    ThrottlerModule.forRoot({
+      ttl: 60, // Time window in seconds
+      limit: 100, // Max requests per ttl
+    }),
+  ],
+})
+export class AppModule {}
+
+// Controller usage
+@UseGuards(ThrottlerGuard)
+@Controller('auth')
+export class AuthController {}
+```
+
+### Stricter Limits for Sensitive Endpoints
+
+```typescript
+// Login - stricter limits
+@Throttle(5, 60)  // 5 requests per minute
+@Post('login')
+login() {}
+
+// Password reset - very strict
+@Throttle(3, 300)  // 3 requests per 5 minutes
+@Post('reset-password')
+resetPassword() {}
+```
+
+---
+
+## Data Exposure Prevention
+
+### Response Serialization
+
+```typescript
+// Entity with sensitive data
+@Entity()
+export class User {
+  @Exclude() // Never expose
+  password: string;
+
+  @Exclude()
+  refreshToken: string;
+
+  @Expose() // Explicitly expose
+  email: string;
+}
+
+// Enable in main.ts
+app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+```
+
+### Error Messages
+
+```typescript
+// ✅ Good - generic message
+throw new UnauthorizedException('Invalid credentials');
+
+// ❌ Bad - reveals information
+throw new UnauthorizedException('User not found');
+throw new UnauthorizedException('Password incorrect');
+```
+
+---
+
+## XSS Prevention
+
+### Sanitize User-Generated Content
+
+```typescript
+import * as sanitizeHtml from 'sanitize-html';
+
+// Before saving user content
+const cleanContent = sanitizeHtml(userInput, {
+  allowedTags: ['b', 'i', 'em', 'strong'],
+  allowedAttributes: {},
+});
+```
+
+### Content Security Policy
+
+```typescript
+// main.ts
+import helmet from 'helmet';
+
+app.use(helmet()); // Adds security headers including CSP
+```
+
+---
+
+## CORS Configuration
+
+```typescript
+// main.ts
+app.enableCors({
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:4200',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  credentials: true,
+});
+```
+
+---
+
+## Security Checklist
+
+### Before Every PR
+
+- [ ] No hardcoded secrets
+- [ ] All inputs validated via DTOs
+- [ ] Sensitive data excluded from responses
+- [ ] Rate limiting on public endpoints
+- [ ] Authorization checks on protected routes
+- [ ] SQL queries are parameterized
+- [ ] Error messages don't leak info
+
+### Before Production
+
+- [ ] HTTPS enforced
+- [ ] Security headers configured (helmet)
+- [ ] CORS properly restricted
+- [ ] Rate limiting tuned for production
+- [ ] Secrets in environment variables
+- [ ] Logging doesn't include sensitive data
+- [ ] Dependencies scanned for vulnerabilities
+
+---
+
+## Common Vulnerabilities to Avoid
+
+| Vulnerability             | Prevention                             |
+| ------------------------- | -------------------------------------- |
+| SQL Injection             | Parameterized queries, ORM             |
+| XSS                       | Sanitize input, escape output          |
+| CSRF                      | SameSite cookies, CSRF tokens          |
+| Broken Auth               | Secure session handling, rate limiting |
+| Sensitive Data Exposure   | Encryption, @Exclude()                 |
+| Security Misconfiguration | Helmet, proper CORS                    |
+| Injection                 | Input validation, whitelist            |

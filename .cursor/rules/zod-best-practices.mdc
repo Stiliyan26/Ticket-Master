@@ -1,0 +1,125 @@
+---
+description: Best practices for using Zod for schema validation and type inference in TypeScript.
+globs: ['**/*.ts']
+---
+
+# Zod Best Practices
+
+## 1. Schema Definition & Type Inference
+
+Always keep your TypeScript types in sync with your Zod schemas using `z.infer`.
+
+```typescript
+// ✅ Good: Type is automatically derived from the schema
+const UserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  age: z.number().min(18).optional(),
+});
+
+type User = z.infer<typeof UserSchema>;
+
+// ❌ Bad: Manually maintaining a separate interface
+interface User {
+  id: string;
+  email: string;
+  age?: number;
+}
+```
+
+## 2. Coercion for Input Data
+
+Use `z.coerce` when dealing with data from sources that provide everything as strings (e.g., Environment Variables, Query Parameters).
+
+```typescript
+// ✅ Good: Automatically converts string "5432" to number 5432
+const configSchema = z.object({
+  DB_PORT: z.coerce.number().default(5432),
+  IS_ENABLED: z.coerce.boolean(),
+});
+```
+
+## 3. Safe Parsing
+
+Prefer `.safeParse()` over `.parse()` when you want to handle errors gracefully without try/catch blocks.
+
+```typescript
+// ✅ Good: Structured error handling
+const result = schema.safeParse(data);
+
+if (!result.success) {
+  // result.error contains detailed ZodError
+  throw new BadRequestException(result.error.format());
+}
+
+return result.data;
+```
+
+## 4. Schema Composition
+
+Reuse and extend schemas to maintain DRY (Don't Repeat Yourself).
+
+```typescript
+const BaseSchema = z.object({
+  id: z.string().uuid(),
+  createdAt: z.coerce.date(),
+});
+
+// ✅ Good: Extending existing schemas
+const UserSchema = BaseSchema.extend({
+  username: z.string(),
+});
+
+// ✅ Good: Picking specific fields
+const UpdateUserSchema = UserSchema.pick({ username: true }).partial();
+```
+
+## 5. String Validation
+
+Be specific with string constraints to improve security and data integrity.
+
+```typescript
+// ✅ Good: Specific constraints
+z.string().trim().min(1).max(255);
+z.string().uuid();
+z.string().email();
+z.string().regex(/^[a-z0-9]+$/i);
+```
+
+## 6. Enums
+
+Use `z.enum` for string enums to get both runtime validation and type safety.
+
+```typescript
+const StatusSchema = z.enum(['ACTIVE', 'INACTIVE', 'PENDING']);
+type Status = z.infer<typeof StatusSchema>;
+```
+
+## 7. Custom Error Messages
+
+Provide human-readable error messages for validation failures.
+
+```typescript
+const passwordSchema = z
+  .string()
+  .min(8, { message: 'Password must be at least 8 characters long' });
+```
+
+## 8. Integration with NestJS Config
+
+When using Zod for `ConfigModule` validation:
+
+```typescript
+// config/env.validation.ts
+export function validate(config: Record<string, unknown>) {
+  const result = envSchema.safeParse(config);
+
+  if (!result.success) {
+    // Log formatted errors for easier debugging
+    console.error('❌ Invalid environment variables:', result.error.format());
+    throw new Error('Config validation failed');
+  }
+
+  return result.data;
+}
+```

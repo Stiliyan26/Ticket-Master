@@ -1,0 +1,297 @@
+---
+description: API design standards - response formats, status codes, pagination, versioning.
+alwaysApply: false
+---
+
+# API Standards
+
+## Response Envelope
+
+All successful responses follow this structure:
+
+### Single Resource
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "name": "Example",
+    "createdAt": "2024-01-15T10:30:00.000Z"
+  }
+}
+```
+
+### Collection (Paginated)
+
+```json
+{
+  "data": [
+    { "id": "uuid-1", "name": "Item 1" },
+    { "id": "uuid-2", "name": "Item 2" }
+  ],
+  "meta": {
+    "total": 150,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 15
+  }
+}
+```
+
+### Empty Collection
+
+```json
+{
+  "data": [],
+  "meta": {
+    "total": 0,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 0
+  }
+}
+```
+
+---
+
+## HTTP Status Codes
+
+### Success Codes
+
+| Code             | When to Use                     | Example                  |
+| ---------------- | ------------------------------- | ------------------------ |
+| `200 OK`         | GET, PUT, PATCH success         | Fetch or update resource |
+| `201 Created`    | POST success (resource created) | Create venue             |
+| `204 No Content` | DELETE success                  | Delete venue             |
+
+### Client Error Codes
+
+| Code                | When to Use               | Example                |
+| ------------------- | ------------------------- | ---------------------- |
+| `400 Bad Request`   | Invalid input             | Missing required field |
+| `401 Unauthorized`  | Missing/invalid auth      | No token               |
+| `403 Forbidden`     | Valid auth, no permission | User can't delete      |
+| `404 Not Found`     | Resource doesn't exist    | Venue not found        |
+| `409 Conflict`      | State conflict            | Duplicate seat         |
+| `422 Unprocessable` | Business rule violation   | Can't book sold ticket |
+
+### Server Error Codes
+
+| Code                        | When to Use          |
+| --------------------------- | -------------------- |
+| `500 Internal Server Error` | Unexpected errors    |
+| `503 Service Unavailable`   | Maintenance/overload |
+
+---
+
+## Pagination
+
+### Query Parameters
+
+```
+GET /api/seats?page=1&limit=20
+```
+
+| Parameter | Type   | Default | Max |
+| --------- | ------ | ------- | --- |
+| `page`    | number | 1       | -   |
+| `limit`   | number | 10      | 100 |
+
+### Response Interface
+
+```typescript
+interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number; // Total items in database
+    page: number; // Current page (1-based)
+    limit: number; // Items per page
+    totalPages: number; // Math.ceil(total / limit)
+  };
+}
+```
+
+### Implementation Pattern
+
+```typescript
+async findAll(page = 1, limit = 10): Promise<PaginatedResponse<Seat>> {
+  const [data, total] = await this.seatRepository.findAndCount({
+    skip: (page - 1) * limit,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+
+  return {
+    data,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+```
+
+---
+
+## URL Naming Conventions
+
+### Resource Naming
+
+| ✅ Good                      | ❌ Bad                   |
+| ---------------------------- | ------------------------ |
+| `/api/venues`                | `/api/getVenues`         |
+| `/api/venues/:id`            | `/api/venue/:id`         |
+| `/api/venues/:venueId/seats` | `/api/venueSeats`        |
+| `/api/bookings/:id/cancel`   | `/api/cancelBooking/:id` |
+
+### Rules
+
+- **Plural nouns** for collections: `/venues`, `/seats`, `/tickets`
+- **Nested resources** for relationships: `/venues/:id/seats`
+- **Actions as sub-resources**: `/bookings/:id/cancel` (POST)
+- **No verbs** in resource names (use HTTP methods)
+
+---
+
+## Request DTOs
+
+### Create DTO (POST)
+
+```typescript
+export class CreateVenueDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  readonly name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  readonly address: string;
+}
+```
+
+### Update DTO (PATCH)
+
+```typescript
+// Use PartialType for optional fields
+export class UpdateVenueDto extends PartialType(CreateVenueDto) {}
+```
+
+### Query DTO (GET with filters)
+
+```typescript
+export class FindSeatsQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  readonly page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  readonly limit?: number = 10;
+
+  @IsOptional()
+  @IsUUID(4)
+  readonly venueId?: string;
+}
+```
+
+---
+
+## Controller Patterns
+
+### Standard CRUD Controller
+
+```typescript
+@Controller('venues')
+export class VenuesController {
+  constructor(private readonly venuesService: VenuesService) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  create(@Body() createVenueDto: CreateVenueDto) {
+    return this.venuesService.create(createVenueDto);
+  }
+
+  @Get()
+  findAll(@Query() query: FindVenuesQueryDto) {
+    return this.venuesService.findAll(query.page, query.limit);
+  }
+
+  @Get(':id')
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.venuesService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateVenueDto: UpdateVenueDto
+  ) {
+    return this.venuesService.update(id, updateVenueDto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.venuesService.remove(id);
+  }
+}
+```
+
+### Controller Rules
+
+- **No business logic** - delegate to service
+- **Always use DTOs** for request bodies
+- **Always use ParseUUIDPipe** for UUID params
+- **Set explicit HTTP codes** with `@HttpCode()`
+- **Validate query params** with Query DTOs
+
+---
+
+## Error Response Format
+
+```json
+{
+  "statusCode": 400,
+  "message": ["name must be a string", "address should not be empty"],
+  "error": "Bad Request",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "path": "/api/venues"
+}
+```
+
+### Single vs Multiple Messages
+
+- **Validation errors**: Array of messages
+- **Business errors**: Single message string
+
+```json
+// Validation (multiple issues)
+{ "message": ["name required", "address required"] }
+
+// Business error (single issue)
+{ "message": "Venue with ID 'abc' not found" }
+```
+
+---
+
+## Versioning (Future)
+
+When breaking changes needed:
+
+```typescript
+// URL versioning (preferred)
+@Controller('v1/venues')
+export class VenuesV1Controller {}
+
+@Controller('v2/venues')
+export class VenuesV2Controller {}
+```
