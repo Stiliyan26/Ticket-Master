@@ -71,10 +71,25 @@ alwaysApply: true
 - PartialType pattern for UpdateDTOs
 - Decorator execution order (transformation → validation)
 
-### 📋 Next - Services & Business Logic (CURRENT)
+### ✅ COMPLETED - Services & Business Logic
 
-- [ ] **VenueService** - CRUD for venues
-- [ ] **SeatService** - CRUD for seats (bulk create for venue)
+- [x] **VenueService** - CRUD for venues + `findByIds()` for bulk lookup
+- [x] **SeatService** - CRUD with bulk transactional create + pagination
+- [x] **@Transactional() decorator** - Custom decorator with AsyncLocalStorage for nested transactions
+- [x] **pagination.util.ts** - Generic paginated response utility
+- [x] **database-error.util.ts** - Enhanced with `createEntityMessageOverrides()` helper
+
+#### 🏆 Services Key Learnings:
+
+- AsyncLocalStorage for transaction propagation (nested transaction support)
+- Repository manager swapping via Object.defineProperty (TypeORM hack)
+- Generic pagination with deterministic ordering (venue → section → row → number)
+- Batch validation patterns (empty check, max size constants)
+- Map-based lookups for O(1) venue resolution in bulk operations
+- Separation of concerns: validation → lookup → mapping → save
+
+### 📋 Next - Remaining Services (CURRENT)
+
 - [ ] **EventService** - CRUD + **pre-generate tickets on create**
 - [ ] **TicketService** - Status transitions (AVAILABLE → HELD → SOLD)
 - [ ] **BookingService** - Transaction logic (hold tickets + create booking)
@@ -201,6 +216,9 @@ alwaysApply: true
 | Number validation    | @Type(() => Number) + @IsPositive()      | Handles HTTP string → number conversion             |
 | Array validation     | @IsUUID(4, { each: true })               | Validates each element in array                     |
 | Infrastructure       | After services, before Phase 2           | Foundation for all future code                      |
+| Transaction handling | Custom `@Transactional()` decorator      | Reusable, nesting via AsyncLocalStorage, repo swap  |
+| Pagination           | Generic `paginate()` utility             | DRY pattern, consistent response format             |
+| Error messages       | `createEntityMessageOverrides()`         | Type-safe, consistent DB error translations         |
 
 ---
 

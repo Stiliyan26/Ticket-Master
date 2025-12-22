@@ -1,27 +1,39 @@
-# PROGRESS
+# Implementation Roadmap: Ticket Master
 
-## Current Focus
+**Goal**: Mid-level → Distributed Systems Engineer by **Jan 5th**
+**Focus**: Backend first → Angular later
+**Progress**: Phase 1/7 Complete ✅ | DTOs & Validation Complete ✅ | Ready for Services | Backend First → Angular Last
 
-- Phase 2: DTOs & Validation (per roadmap)
-- Hardening seats domain: transactional bulk create + pagination for list endpoints
-- Domain modules are grouped under `apps/api/src/app/domains`; infra stays at `apps/api/src/app/{common,config,database}`.
-- Formatting rule: add a blank line after each statement (except directly before control blocks).
-- Type inference rule: allow TypeScript to infer return types for functions and methods when clear and safe (not `any`).
+---
 
-## Checklist
+## Phase 1: Foundation ✅ COMPLETED
 
-- [x] Move `bookings`, `events`, `seats`, `venues` under `app/domains`
-- [ ] Keep infra modules (`common`, `config`, `database`) isolated from domain code
-- [ ] Update any diagrams/docs to reflect the domain/infra split
-- [x] Seats: wrap bulk create in a transaction to avoid partial writes
-- [x] Seats: add pagination with deterministic ordering for list endpoint
-- [ ] Mentorship: Re-implement `SeatsService` from scratch
-  - [ ] Implement `create` (Bulk, Transactional, Validation)
-  - [ ] Implement `findAll` (Paginated, Deterministic)
-  - [ ] Implement `findOne`
-  - [ ] Implement `update` (Optimized)
-  - [ ] Implement `remove`
+**Objective**: Build a "Safe" schema that rejects bad data before it enters the system.
+
+### ✅ Completed
+
+- [x] Project setup with NX monorepo
+- [x] DatabaseModule with TypeORM + PostgreSQL
+- [x] ConfigModule with Zod validation
+- [x] Entity design (Assigned Seating model)
+- [x] All Entities with Advanced Features (BaseEntity, Optimistic Locking, Bidirectional Relationships)
+- [x] DTOs & Validation (Global ValidationPipe, PartialTypes)
+- [x] Services & Business Logic (VenueService, SeatService)
+- [x] Custom `@Transactional()` decorator with AsyncLocalStorage
+
+### 📋 Next - Remaining Services (CURRENT)
+
+- [ ] **EventService** - CRUD + **pre-generate tickets on create**
+- [ ] **TicketService** - Status transitions (AVAILABLE → HELD → SOLD)
+- [ ] **BookingService** - Transaction logic (hold tickets + create booking)
+
+---
 
 ## Architecture Decisions Log
 
-- 2025-12-09: Group domain modules under `app/domains`; keep infra (`common`, `config`, `database`) at top-level to separate domain code from infrastructure.
+| Date       | Decision               | Choice                                | Reason                                                                                         |
+| :--------- | :--------------------- | :------------------------------------ | :--------------------------------------------------------------------------------------------- |
+| 2025-12-22 | **Decorator Refactor** | Split `@Transactional()` into 3 files | Adhere to 200-line limit and SRP. Separates Types/Storage, Execution logic, and Decorator API. |
+| 2025-12-22 | **Transaction Prop**   | AsyncLocalStorage                     | Allows seamless nested transactions without passing `EntityManager` manually to every method.  |
+| 2025-12-22 | **Domain Split**       | `app/domains` folder                  | Clean separation of business logic (domains) from infrastructure (common, config, database).   |
+| 2025-12-22 | **Concurrency**        | `@VersionColumn`                      | Uses optimistic locking on the Ticket entity to prevent race conditions during booking.        |

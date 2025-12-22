@@ -117,6 +117,39 @@ export class CoffeesService {
 | `@OneToMany` / `@ManyToOne` | ❌ Never                 |
 | `@ManyToMany`               | ✅ One side only (owner) |
 
+---
+
+## Transaction Decorator Pattern
+
+Custom decorator using AsyncLocalStorage for transaction propagation:
+
+### Implementation
+
+```typescript
+// AsyncLocalStorage tracks active transaction managers
+export const transactionStorage = new AsyncLocalStorage<EntityManager>();
+
+@Transactional<SeatsService>({
+  repoKey: 'seatRepository',
+  errorContext: SeatsService.name,
+  messageOverrides: createEntityMessageOverrides(Seat.name, DB_OPERATIONS.CREATE),
+})
+async create(dtos: CreateSeatDto[]): Promise<Seat[]> {
+  // Automatically wrapped in transaction
+  // Nested @Transactional calls reuse the same manager
+}
+```
+
+### Key Features
+
+| Feature             | Implementation                                           |
+| ------------------- | -------------------------------------------------------- |
+| Nested transactions | AsyncLocalStorage propagates manager to nested calls     |
+| Auto repo swap      | Finds all Repository instances and swaps their managers  |
+| Error handling      | Integrated with handleDatabaseError and custom overrides |
+
+---
+
 ### Cascading
 
 ```typescript
