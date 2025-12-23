@@ -4,7 +4,7 @@ import { In, Repository } from 'typeorm';
 import { Venue } from './entities/venue.entity';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
-import { Transactional } from '../../common/decorators/transactional.decorator';
+import { Transactional } from '../../common/decorators/transactional';
 
 @Injectable()
 export class VenuesService {

@@ -1,10 +1,7 @@
 import { Repository, DataSource, ObjectLiteral } from 'typeorm';
 
-import { handleDatabaseError } from './database-error.util';
-import {
-  transactionStorage,
-  TransactionOptions,
-} from './transaction-storage.util';
+import { handleDatabaseError } from '../../utils/database-error.util';
+import { transactionStorage, TransactionOptions } from './transaction-storage';
 
 export class TransactionExecutor<T extends object> {
   constructor(
@@ -16,15 +13,15 @@ export class TransactionExecutor<T extends object> {
   ) {}
 
   async execute(): Promise<unknown> {
+    this.patchRepositories();
+
+    const existingManager = transactionStorage.getStore();
+
+    if (existingManager) {
+      return await this.originalMethod.apply(this.instance, this.args);
+    }
+
     try {
-      this.patchRepositories();
-
-      const existingManager = transactionStorage.getStore();
-
-      if (existingManager) {
-        return await this.originalMethod.apply(this.instance, this.args);
-      }
-
       return await this.dataSource.transaction(async (transactionManager) => {
         // Store the manager in AsyncLocalStorage for context-aware repositories to pick up.
         return transactionStorage.run(transactionManager, async () => {

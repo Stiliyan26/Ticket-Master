@@ -23,7 +23,7 @@ import {
   createEntityMessageOverrides,
   DB_OPERATIONS,
 } from '../../common/utils/database-error.util';
-import { Transactional } from '../../common/decorators/transactional.decorator';
+import { Transactional } from '../../common/decorators/transactional';
 
 @Injectable()
 export class SeatsService {

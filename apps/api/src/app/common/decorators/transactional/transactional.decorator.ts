@@ -1,10 +1,7 @@
 import { Repository, DataSource, ObjectLiteral } from 'typeorm';
 
-import { TransactionExecutor } from '../utils/transaction-executor.util';
-import {
-  transactionStorage,
-  TransactionOptions,
-} from '../utils/transaction-storage.util';
+import { TransactionExecutor } from './transaction-executor';
+import { transactionStorage, TransactionOptions } from './transaction-storage';
 
 /**
  * Decorator to wrap a method in a database transaction.

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
@@ -124,6 +125,10 @@ export function handleDatabaseError(
     context?: string;
   } = {}
 ) {
+  if (error instanceof HttpException) {
+    throw error;
+  }
+
   const logger = new Logger(context || 'DatabaseErrorHandler');
 
   if (isPgError(error)) {
