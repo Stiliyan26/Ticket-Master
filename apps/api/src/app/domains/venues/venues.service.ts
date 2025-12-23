@@ -55,6 +55,7 @@ export class VenuesService {
   findByIds(ids: string[]): Promise<Venue[]> {
     return this.venueRepository.find({
       where: { id: In(ids) },
+      lock: { mode: 'pessimistic_read' },
     });
   }
 }

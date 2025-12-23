@@ -183,6 +183,34 @@ if (dtos.length > 1000) {
 }
 ```
 
+### Separation of Concerns (Function Level)
+
+Each function should have a single responsibility. Extract distinct logic steps (validation, mapping, complex lookups) into private helper methods to keep the main flow clean and readable.
+
+```typescript
+// ✅ Good
+async create(dtos: CreateSeatDto[]): Promise<Seat[]> {
+  this.validateBatchSize(dtos); // Extracted validation
+
+  const venueIds = this.getUniqueVenueIds(dtos);
+  const venuesMap = await this.getVenuesMap(venueIds);
+
+  const entities = this.mapDtosToEntities(dtos, venuesMap);
+
+  return this.seatRepository.save(entities);
+}
+
+// ❌ Bad (Inline everything)
+async create(dtos: CreateSeatDto[]): Promise<Seat[]> {
+  if (dtos.length > 1000) {
+    throw new BadRequestException('Batch too large');
+  }
+
+  const venueIds = [...new Set(dtos.map(d => d.venueId))];
+  // ... etc
+}
+```
+
 ### Extract Complex Logic
 
 ```typescript
