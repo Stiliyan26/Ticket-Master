@@ -1,6 +1,5 @@
-import { Repository, ObjectLiteral } from 'typeorm';
+import { Repository, DataSource, ObjectLiteral } from 'typeorm';
 
-import { handleDatabaseError } from '../utils/database-error.util';
 import { TransactionExecutor } from '../utils/transaction-executor.util';
 import {
   transactionStorage,
@@ -31,57 +30,14 @@ export function Transactional<T extends object>(
       this: T,
       ...args: Args
     ): Promise<Return> {
-      const { repoKey } = options;
-      const existingManager = transactionStorage.getStore();
-
-      if (existingManager) {
-        try {
-          return await originalMethod.apply(this, args);
-        } catch (error: unknown) {
-          const { errorContext, messageOverrides } = options;
-
-          if (errorContext) {
-            return handleDatabaseError(error, {
-              messageOverrides,
-              context: errorContext,
-            }) as never;
-          }
-
-          throw error;
-        }
-      }
-
-      let repository: Repository<ObjectLiteral> | undefined;
-      const instanceRecord = this as Record<string, unknown>;
-
-      if (repoKey) {
-        const value = instanceRecord[repoKey];
-
-        if (value instanceof Repository) {
-          repository = value;
-        }
-      } else {
-        repository = Object.values(instanceRecord).find(
-          (val): val is Repository<ObjectLiteral> => val instanceof Repository
-        );
-      }
-
-      const dataSource = repository?.manager.connection;
-
-      if (!dataSource) {
-        throw new Error(
-          `@Transactional() failed: No DataSource found on ${this.constructor.name}. ` +
-            `Please provide repoKey or ensure a Repository is injected.`
-        );
-      }
+      const dataSource = getDataSource(this, options);
 
       const executor = new TransactionExecutor(
         this,
         dataSource,
         options,
         originalMethod as (...args: unknown[]) => Promise<unknown>,
-        args,
-        this
+        args
       );
 
       return executor.execute() as Promise<Return>;
@@ -89,4 +45,43 @@ export function Transactional<T extends object>(
 
     return descriptor;
   };
+}
+
+function getDataSource<T extends object>(
+  instance: T,
+  options: TransactionOptions<T>
+): DataSource {
+  const existingManager = transactionStorage.getStore();
+
+  if (existingManager) {
+    return existingManager.connection;
+  }
+
+  const repository = findRepository(instance, options.repoKey);
+
+  if (!repository) {
+    throw new Error(
+      `@Transactional() failed: No DataSource found on ${instance.constructor.name}. ` +
+        `Please provide repoKey or ensure a Repository is injected.`
+    );
+  }
+
+  return repository.manager.connection;
+}
+
+function findRepository<T extends object>(
+  instance: T,
+  repoKey?: string
+): Repository<ObjectLiteral> | undefined {
+  const instanceRecord = instance as Record<string, unknown>;
+
+  if (repoKey) {
+    const value = instanceRecord[repoKey];
+
+    return value instanceof Repository ? value : undefined;
+  }
+
+  return Object.values(instanceRecord).find(
+    (val): val is Repository<ObjectLiteral> => val instanceof Repository
+  );
 }

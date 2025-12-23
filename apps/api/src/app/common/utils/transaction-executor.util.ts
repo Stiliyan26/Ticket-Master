@@ -12,18 +12,23 @@ export class TransactionExecutor<T extends object> {
     private readonly dataSource: DataSource,
     private readonly options: TransactionOptions<T>,
     private readonly originalMethod: (...args: unknown[]) => Promise<unknown>,
-    private readonly args: unknown[],
-    private readonly thisContext: T
+    private readonly args: unknown[]
   ) {}
 
   async execute(): Promise<unknown> {
     try {
       this.patchRepositories();
 
+      const existingManager = transactionStorage.getStore();
+
+      if (existingManager) {
+        return await this.originalMethod.apply(this.instance, this.args);
+      }
+
       return await this.dataSource.transaction(async (transactionManager) => {
         // Store the manager in AsyncLocalStorage for context-aware repositories to pick up.
         return transactionStorage.run(transactionManager, async () => {
-          return await this.originalMethod.apply(this.thisContext, this.args);
+          return await this.originalMethod.apply(this.instance, this.args);
         });
       });
     } catch (error: unknown) {
@@ -40,6 +45,7 @@ export class TransactionExecutor<T extends object> {
       }
 
       const repo = val as Repository<ObjectLiteral>;
+
       const descriptor = Object.getOwnPropertyDescriptor(repo, 'manager');
 
       if (descriptor?.get) {
@@ -50,7 +56,7 @@ export class TransactionExecutor<T extends object> {
 
       Object.defineProperty(repo, 'manager', {
         get() {
-          return transactionStorage.getStore() || originalManager;
+          return transactionStorage.getStore() ?? originalManager;
         },
         enumerable: true,
         configurable: true,
