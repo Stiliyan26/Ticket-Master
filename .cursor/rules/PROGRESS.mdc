@@ -11,6 +11,20 @@ alwaysApply: false
 
 ---
 
+## 🚨 RULES FOR AI ASSISTANTS
+
+> **CRITICAL**: Follow these rules to prevent scope creep and ensure predictable work.
+
+1. **ONLY implement what is explicitly listed** in the current phase's checklist
+2. **DO NOT add endpoints, methods, or features** not listed in the tasks
+3. **DO NOT refactor existing code** unless the task explicitly says "refactor"
+4. **DO NOT add "nice to have" improvements** - stick to the spec
+5. **Mark tasks complete** as you finish them
+6. **If something seems missing**, ask the user before adding it
+7. **Controllers are THIN** - they only call service methods, no business logic
+
+---
+
 ## Phase 1: Foundation ✅ COMPLETED
 
 **Objective**: Build a "Safe" schema that rejects bad data before it enters the system.
@@ -75,6 +89,8 @@ alwaysApply: false
 
 - [x] **VenueService** - CRUD for venues + `findByIds()` for bulk lookup
 - [x] **SeatService** - CRUD with bulk transactional create + pagination
+- [x] **EventsService** - CRUD with ticket auto-generation on create
+- [x] **TicketsService** - `createTicketsForEvent()`, `findByEvent()`, `removeTicketsByEvent()`, `updatePricesByEvent()`, `hasSoldTickets()`
 - [x] **@Transactional() decorator** - Custom decorator with AsyncLocalStorage for nested transactions
 - [x] **pagination.util.ts** - Generic paginated response utility
 - [x] **database-error.util.ts** - Enhanced with `createEntityMessageOverrides()` helper
@@ -88,24 +104,286 @@ alwaysApply: false
 - Map-based lookups for O(1) venue resolution in bulk operations
 - Separation of concerns: validation → lookup → mapping → save
 
-### 📋 Next - Remaining Services (CURRENT)
+---
 
-- [x] **EventService** - CRUD + **pre-generate tickets on create**
-- [ ] **TicketService** - Status transitions (AVAILABLE → HELD → SOLD)
-- [ ] **BookingService** - Transaction logic (hold tickets + create booking)
+## 📋 Phase 1B: Complete Ticket & Booking Domains (In Progress ⏳)
 
-### 📋 After Services - Production Infrastructure
+**Objective**: Complete the core business engine with strict domain boundaries.
 
-- [ ] **GlobalExceptionFilter** - Standardize all error responses
-- [ ] **TransformInterceptor** - Wrap responses in `{ data: ... }`
-- [ ] **LoggingInterceptor** - Request/response logging with correlation IDs
-- [ ] **TimeoutInterceptor** - Kill long-running requests
-- [ ] **CorrelationIdMiddleware** - Request tracing
+### 🎫 Task 1: TicketsService - Hold/Release/Finalize Methods
 
-### 📋 Finally - Tests & Constraints
+**File**: `apps/api/src/app/domains/tickets/tickets.service.ts`
 
-- [ ] **E2E Tests** - Verify booking prevents overselling
-- [ ] **DB Constraints** - Unique(event, seat) on Ticket
+Add these **exact** methods to the existing TicketsService:
+
+#### 1.1 `holdTickets(ticketIds: string[]): Promise<Ticket[]>`
+
+```typescript
+// Signature
+async holdTickets(ticketIds: string[]): Promise<Ticket[]>
+
+// Behavior:
+// 1. Find tickets by IDs with pessimistic write lock (SELECT FOR UPDATE)
+// 2. Validate ALL tickets are AVAILABLE status
+// 3. If any not available → throw ConflictException('One or more tickets are no longer available')
+// 4. Update status to HELD, set heldAt = new Date()
+// 5. Save and return updated tickets
+// 6. Use @Transactional decorator
+
+// Required imports: ConflictException
+// Uses optimistic locking via @VersionColumn (already on entity)
+```
+
+#### 1.2 `releaseTickets(ticketIds: string[]): Promise<void>`
+
+```typescript
+// Signature
+async releaseTickets(ticketIds: string[]): Promise<void>
+
+// Behavior:
+// 1. Find tickets by IDs
+// 2. Filter to only HELD tickets (ignore others silently)
+// 3. Update status to AVAILABLE, clear heldAt = null
+// 4. Save changes
+// 5. Use @Transactional decorator
+```
+
+#### 1.3 `finalizePurchase(ticketIds: string[]): Promise<Ticket[]>`
+
+```typescript
+// Signature
+async finalizePurchase(ticketIds: string[]): Promise<Ticket[]>
+
+// Behavior:
+// 1. Find tickets by IDs
+// 2. Validate ALL tickets are HELD status
+// 3. If any not HELD → throw ConflictException('Tickets must be held before purchase')
+// 4. Update status to SOLD
+// 5. Save and return updated tickets
+// 6. Use @Transactional decorator
+```
+
+#### 1.4 Entity Change Required
+
+**File**: `apps/api/src/app/domains/tickets/entities/ticket.entity.ts`
+
+Add `heldAt` column:
+
+```typescript
+@Column({ type: 'timestamp', nullable: true })
+heldAt: Date | null;
+```
+
+- [ ] **Add `heldAt` column to Ticket entity**
+- [ ] **Implement `holdTickets()` method**
+- [ ] **Implement `releaseTickets()` method**
+- [ ] **Implement `finalizePurchase()` method**
+
+---
+
+### 🎫 Task 2: TicketsController - Final API Shape
+
+**File**: `apps/api/src/app/domains/tickets/tickets.controller.ts`
+
+**FINAL ENDPOINTS** (no more, no less):
+
+| Method | Path                                | Description                 | Service Method     |
+| ------ | ----------------------------------- | --------------------------- | ------------------ |
+| GET    | `/tickets/event/:eventId`           | Get all tickets for event   | `findByEvent()`    |
+| GET    | `/tickets/event/:eventId/available` | Get available tickets count | `countAvailable()` |
+
+**DO NOT ADD**: POST, PATCH, DELETE endpoints. Tickets are managed via Events and Bookings.
+
+#### 2.1 Add `countAvailable()` to TicketsService
+
+```typescript
+// Signature
+async countAvailable(eventId: string): Promise<{ available: number; total: number }>
+
+// Behavior:
+// 1. Count tickets where event.id = eventId AND status = AVAILABLE
+// 2. Count total tickets for event
+// 3. Return { available, total }
+```
+
+#### 2.2 Add endpoint to controller
+
+```typescript
+@Get('/event/:eventId/available')
+@ApiOperation({ summary: 'Get available ticket count for an event' })
+async getAvailability(@Param('eventId', ParseUUIDPipe) eventId: string) {
+  return this.ticketsService.countAvailable(eventId);
+}
+```
+
+- [ ] **Add `countAvailable()` method to TicketsService**
+- [ ] **Add GET `/tickets/event/:eventId/available` endpoint**
+- [ ] **Verify controller has only 2 GET endpoints (no POST/PATCH/DELETE)**
+
+---
+
+### 🛍️ Task 3: BookingsService - Create & Cancel
+
+**File**: `apps/api/src/app/domains/bookings/bookings.service.ts`
+
+**Replace the entire placeholder service** with real implementation:
+
+#### 3.1 Dependencies
+
+```typescript
+constructor(
+  @InjectRepository(Booking)
+  public readonly bookingRepository: Repository<Booking>,
+  private readonly ticketsService: TicketsService,
+) {}
+```
+
+#### 3.2 `create(dto: CreateBookingDto): Promise<Booking>`
+
+```typescript
+// Signature
+@Transactional<BookingsService>({ repoKey: 'bookingRepository', ... })
+async create(dto: CreateBookingDto): Promise<Booking>
+
+// Behavior:
+// 1. Call ticketsService.holdTickets(dto.ticketIds) - this validates availability
+// 2. Calculate totalPrice = sum of ticket prices
+// 3. Create booking with status = CONFIRMED, userId, totalPrice
+// 4. Assign tickets to booking (ticket.booking = savedBooking)
+// 5. Call ticketsService.finalizePurchase(dto.ticketIds)
+// 6. Return booking with tickets relation loaded
+
+// On error: Transaction rolls back automatically (tickets released)
+```
+
+#### 3.3 `findOne(id: string): Promise<Booking>`
+
+```typescript
+// Signature
+async findOne(id: string): Promise<Booking>
+
+// Behavior:
+// 1. Find booking by ID with relations: { tickets: { seat: true, event: true } }
+// 2. If not found → throw NotFoundException
+// 3. Return booking
+```
+
+#### 3.4 `cancel(id: string): Promise<void>`
+
+```typescript
+// Signature
+@Transactional<BookingsService>({ repoKey: 'bookingRepository', ... })
+async cancel(id: string): Promise<void>
+
+// Behavior:
+// 1. Find booking by ID with tickets
+// 2. If not found → throw NotFoundException
+// 3. If status already CANCELLED → throw ConflictException('Booking already cancelled')
+// 4. Get ticket IDs from booking.tickets
+// 5. Call ticketsService.releaseTickets(ticketIds)
+// 6. Update booking status to CANCELLED
+// 7. Save booking
+```
+
+- [ ] **Implement `create()` with ticket holding and purchase finalization**
+- [ ] **Implement `findOne()` with proper relations**
+- [ ] **Implement `cancel()` with ticket release**
+- [ ] **Remove placeholder methods (`findAll`, `update`, `remove`)**
+
+---
+
+### 🛍️ Task 4: BookingsController - Final API Shape
+
+**File**: `apps/api/src/app/domains/bookings/bookings.controller.ts`
+
+**FINAL ENDPOINTS** (no more, no less):
+
+| Method | Path                   | Description          | Service Method |
+| ------ | ---------------------- | -------------------- | -------------- |
+| POST   | `/bookings`            | Create a new booking | `create()`     |
+| GET    | `/bookings/:id`        | Get booking by ID    | `findOne()`    |
+| POST   | `/bookings/:id/cancel` | Cancel a booking     | `cancel()`     |
+
+**REMOVE**: GET `/bookings` (findAll), PATCH `/bookings/:id`, DELETE `/bookings/:id`
+
+#### 4.1 Final Controller Code
+
+```typescript
+@ApiTags('bookings')
+@Controller('bookings')
+export class BookingsController {
+  constructor(private readonly bookingsService: BookingsService) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a new booking' })
+  create(@Body() createBookingDto: CreateBookingDto) {
+    return this.bookingsService.create(createBookingDto);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a booking by id' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.bookingsService.findOne(id);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel a booking' })
+  cancel(@Param('id', ParseUUIDPipe) id: string) {
+    return this.bookingsService.cancel(id);
+  }
+}
+```
+
+- [ ] **Update controller to have exactly 3 endpoints**
+- [ ] **Remove findAll, update, remove methods and endpoints**
+- [ ] **Add POST `/bookings/:id/cancel` endpoint**
+
+---
+
+### 🛠️ Task 5: Production Infrastructure
+
+**Files to create**:
+
+#### 5.1 GlobalExceptionFilter
+
+**File**: `apps/api/src/app/common/filters/global-exception.filter.ts`
+
+```typescript
+// Catches all exceptions
+// Returns consistent format: { statusCode, message, error, timestamp, path }
+// Logs full error for 500s
+// Register in main.ts: app.useGlobalFilters(new GlobalExceptionFilter())
+```
+
+#### 5.2 LoggingInterceptor
+
+**File**: `apps/api/src/app/common/interceptors/logging.interceptor.ts`
+
+```typescript
+// Logs: [METHOD] /path - duration ms
+// Uses Logger from @nestjs/common
+// Register in main.ts: app.useGlobalInterceptors(new LoggingInterceptor())
+```
+
+- [ ] **Create GlobalExceptionFilter**
+- [ ] **Create LoggingInterceptor**
+- [ ] **Register both in main.ts**
+
+---
+
+### ✅ Task 6: Phase 1B Completion Checklist
+
+Before marking Phase 1B complete, verify:
+
+- [ ] **TicketsService has 8 methods**: `createTicketsForEvent`, `findByEvent`, `removeTicketsByEvent`, `updatePricesByEvent`, `hasSoldTickets`, `holdTickets`, `releaseTickets`, `finalizePurchase`, `countAvailable`
+- [ ] **TicketsController has 2 GET endpoints only**
+- [ ] **BookingsService has 3 methods**: `create`, `findOne`, `cancel`
+- [ ] **BookingsController has 3 endpoints**: POST `/`, GET `/:id`, POST `/:id/cancel`
+- [ ] **Ticket entity has `heldAt` column**
+- [ ] **GlobalExceptionFilter registered**
+- [ ] **LoggingInterceptor registered**
 
 ---
 
@@ -113,12 +391,114 @@ alwaysApply: false
 
 **Objective**: Move locking from DB to Redis for high-traffic scenarios.
 
-- [ ] Docker Compose with Redis
-- [ ] Redis Custom Provider (Factory pattern)
-- [ ] Redlock implementation (acquire/release pattern)
-- [ ] `@DistributedLock()` decorator
-- [ ] Strategy pattern: Switch between DB lock & Redis lock
-- [ ] Load testing with Artillery/k6
+### Task 2.1: Docker & Redis Setup
+
+**File**: `docker-compose.yml` (create in project root)
+
+```yaml
+version: '3.8'
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+volumes:
+  redis_data:
+```
+
+- [ ] **Create docker-compose.yml with Redis service**
+- [ ] **Add `docker-compose up -d` to README**
+
+### Task 2.2: Redis Module
+
+**File**: `apps/api/src/app/redis/redis.module.ts`
+
+```typescript
+// Dynamic module with forRoot()
+// Uses Factory Provider pattern (useFactory)
+// Injects ConfigService for REDIS_URL
+// Exports Redis client
+```
+
+**File**: `apps/api/src/app/redis/redis.provider.ts`
+
+```typescript
+// Factory provider that creates Redis client
+// Uses ioredis package
+// Handles connection errors gracefully
+```
+
+- [ ] **Install ioredis**: `npm install ioredis`
+- [ ] **Create RedisModule with forRoot()**
+- [ ] **Create Redis factory provider**
+- [ ] **Add REDIS_URL to env.validation.ts**
+
+### Task 2.3: Distributed Lock Service
+
+**File**: `apps/api/src/app/common/services/distributed-lock.service.ts`
+
+```typescript
+// Methods:
+// - acquireLock(key: string, ttlMs: number): Promise<string | null>
+// - releaseLock(key: string, token: string): Promise<boolean>
+// Uses SET NX EX pattern (not Redlock for simplicity)
+// Returns lock token on success, null on failure
+```
+
+- [ ] **Create DistributedLockService**
+- [ ] **Implement acquireLock with SET NX EX**
+- [ ] **Implement releaseLock with Lua script**
+
+### Task 2.4: @DistributedLock Decorator
+
+**File**: `apps/api/src/app/common/decorators/distributed-lock/distributed-lock.decorator.ts`
+
+```typescript
+// Decorator options: { keyPrefix: string, ttlMs: number, paramIndex?: number }
+// Works with Interceptor to acquire/release lock
+// Key format: `${keyPrefix}:${paramValue}`
+// Throws ConflictException if lock not acquired
+```
+
+**File**: `apps/api/src/app/common/interceptors/distributed-lock.interceptor.ts`
+
+```typescript
+// Reads metadata from @DistributedLock decorator
+// Acquires lock before method execution
+// Releases lock after method completes (success or error)
+```
+
+- [ ] **Create @DistributedLock decorator**
+- [ ] **Create DistributedLockInterceptor**
+- [ ] **Register interceptor globally or per-controller**
+
+### Task 2.5: Apply to TicketsService
+
+Update `holdTickets()` to use distributed lock:
+
+```typescript
+@DistributedLock({ keyPrefix: 'ticket-hold', ttlMs: 5000 })
+async holdTickets(ticketIds: string[]): Promise<Ticket[]>
+```
+
+- [ ] **Add @DistributedLock to holdTickets()**
+- [ ] **Test that concurrent holds for same tickets fail gracefully**
+
+### Task 2.6: Load Testing
+
+**File**: `load-tests/hold-tickets.yml` (Artillery config)
+
+```yaml
+# Test concurrent ticket holds
+# 100 virtual users trying to hold same tickets
+# Verify only 1 succeeds, others get 409
+```
+
+- [ ] **Install Artillery**: `npm install -D artillery`
+- [ ] **Create load test config**
+- [ ] **Run test and document results**
 
 ---
 
@@ -126,25 +506,139 @@ alwaysApply: false
 
 **Objective**: Handle failures gracefully without data corruption.
 
-- [ ] Idempotency Keys (prevent double-booking on retry)
-- [ ] Circuit Breaker pattern (for external services)
-- [ ] Retry with exponential backoff
-- [ ] Health checks endpoint
-- [ ] Background job: Expire HELD tickets after timeout
-- [ ] Rate limiting with @nestjs/throttler
+### Task 3.1: Idempotency Keys
+
+**File**: `apps/api/src/app/common/decorators/idempotent/idempotent.decorator.ts`
+
+```typescript
+// Reads X-Idempotency-Key header
+// Stores result in Redis with TTL (24 hours)
+// Returns cached result if key exists
+// Prevents double-booking on retry
+```
+
+**Apply to**: `BookingsController.create()`
+
+- [ ] **Create @Idempotent decorator**
+- [ ] **Create IdempotencyInterceptor**
+- [ ] **Apply to POST /bookings**
+- [ ] **Test: Same key returns same result, no duplicate booking**
+
+### Task 3.2: Background Job - Expire Held Tickets
+
+**File**: `apps/api/src/app/jobs/expire-held-tickets.job.ts`
+
+```typescript
+// Runs every 1 minute via @Cron
+// Finds tickets where status = HELD AND heldAt < (now - 10 minutes)
+// Releases them (status = AVAILABLE, heldAt = null)
+// Logs count of expired tickets
+```
+
+- [ ] **Install @nestjs/schedule**: `npm install @nestjs/schedule`
+- [ ] **Create ExpireHeldTicketsJob**
+- [ ] **Register ScheduleModule in AppModule**
+- [ ] **Test: Hold ticket, wait 10+ min, verify released**
+
+### Task 3.3: Health Check Endpoint
+
+**File**: `apps/api/src/app/health/health.controller.ts`
+
+```typescript
+// GET /health
+// Checks: Database connection, Redis connection
+// Returns: { status: 'ok' | 'error', checks: { db: 'up'|'down', redis: 'up'|'down' } }
+```
+
+- [ ] **Install @nestjs/terminus**: `npm install @nestjs/terminus`
+- [ ] **Create HealthModule and HealthController**
+- [ ] **Add DB and Redis health indicators**
+
+### Task 3.4: Rate Limiting
+
+**File**: Update `main.ts`
+
+```typescript
+// Apply ThrottlerGuard globally
+// Config: 100 requests per 60 seconds per IP
+// Returns 429 Too Many Requests when exceeded
+```
+
+- [ ] **Install @nestjs/throttler**: `npm install @nestjs/throttler`
+- [ ] **Configure ThrottlerModule in AppModule**
+- [ ] **Apply ThrottlerGuard globally**
 
 ---
 
 ## Phase 4: Async Consistency
 
-**Objective**: Decouple operations and ensure eventual consistency within the monolith.
+**Objective**: Decouple operations and ensure eventual consistency.
 
-**Note**: Outbox pattern and event-driven architecture can be implemented in a monolith using message queues (BullMQ/RabbitMQ). Microservices are NOT required for these patterns - they can be added later when splitting services.
+### Task 4.1: BullMQ Setup
 
-- [ ] BullMQ setup with Redis
-- [ ] Transactional Outbox pattern (monolith - single DB)
-- [ ] Event-driven booking confirmation (email queue)
-- [ ] Dead letter queue handling
+**File**: `apps/api/src/app/queues/queues.module.ts`
+
+```typescript
+// Configures BullMQ with Redis connection
+// Exports BullModule for use in other modules
+```
+
+- [ ] **Install BullMQ**: `npm install @nestjs/bullmq bullmq`
+- [ ] **Create QueuesModule**
+- [ ] **Configure Redis connection**
+
+### Task 4.2: Booking Confirmation Queue
+
+**File**: `apps/api/src/app/queues/booking-confirmation.processor.ts`
+
+```typescript
+// Processor for 'booking-confirmation' queue
+// Job data: { bookingId: string, userEmail: string }
+// Action: Log "Sending confirmation email for booking {id} to {email}"
+// (Actual email sending is out of scope - just log)
+```
+
+**Update**: `BookingsService.create()` to enqueue job after successful booking.
+
+- [ ] **Create booking-confirmation queue**
+- [ ] **Create BookingConfirmationProcessor**
+- [ ] **Enqueue job in BookingsService.create()**
+
+### Task 4.3: Transactional Outbox Pattern
+
+**File**: `apps/api/src/app/common/entities/outbox-event.entity.ts`
+
+```typescript
+// Entity: id, eventType, payload (JSON), processedAt, createdAt
+// Stores events that need to be published
+```
+
+**File**: `apps/api/src/app/jobs/process-outbox.job.ts`
+
+```typescript
+// Runs every 5 seconds
+// Finds unprocessed events (processedAt = null)
+// Publishes to queue
+// Marks as processed
+```
+
+- [ ] **Create OutboxEvent entity**
+- [ ] **Create ProcessOutboxJob**
+- [ ] **Update BookingsService to write to outbox in same transaction**
+
+### Task 4.4: Dead Letter Queue
+
+**File**: `apps/api/src/app/queues/dead-letter.processor.ts`
+
+```typescript
+// Handles failed jobs after max retries
+// Logs error details
+// Could notify admin (out of scope - just log)
+```
+
+- [ ] **Configure DLQ in BullMQ**
+- [ ] **Create DeadLetterProcessor**
+- [ ] **Test: Force job failure, verify lands in DLQ**
 
 ---
 
@@ -152,47 +646,103 @@ alwaysApply: false
 
 **Objective**: Production-ready API surface.
 
-- [ ] Swagger/OpenAPI documentation
-- [ ] API versioning
-- [ ] Request validation pipes (global)
-- [ ] Response serialization interceptor
+### Task 5.1: Swagger Setup
+
+**File**: Update `main.ts`
+
+```typescript
+// Configure SwaggerModule
+// Title: "Ticket Master API"
+// Version: "1.0"
+// Description: "Event ticketing system API"
+// Add bearer auth (for future)
+```
+
+- [ ] **Install @nestjs/swagger**: `npm install @nestjs/swagger`
+- [ ] **Configure SwaggerModule in main.ts**
+- [ ] **Access docs at /api/docs**
+
+### Task 5.2: Response DTOs
+
+Create response DTOs for all entities to control serialization:
+
+**Files**:
+
+- `apps/api/src/app/domains/events/dto/event-response.dto.ts`
+- `apps/api/src/app/domains/tickets/dto/ticket-response.dto.ts`
+- `apps/api/src/app/domains/bookings/dto/booking-response.dto.ts`
+
+```typescript
+// Use @Exclude() to hide internal fields
+// Use @Expose() to include computed fields
+// Use @Type() for nested objects
+```
+
+- [ ] **Create EventResponseDto**
+- [ ] **Create TicketResponseDto**
+- [ ] **Create BookingResponseDto**
+- [ ] **Apply ClassSerializerInterceptor globally**
+
+### Task 5.3: API Versioning
+
+**File**: Update `main.ts`
+
+```typescript
+// Enable URI versioning: /api/v1/...
+// Default version: 1
+// All controllers get @Version('1')
+```
+
+- [ ] **Configure versioning in main.ts**
+- [ ] **Update all controllers with @Version('1')**
+- [ ] **Update Swagger to show version**
 
 ---
 
-## Phase 6: Microservices
+## Phase 6: Microservices (Future)
 
-**Objective**: Split monolith into distributed services for true Trading212-like architecture.
+**Objective**: Split monolith into distributed services.
 
-**Note**: Complete all backend phases (1-5) before splitting into microservices. This phase comes before Angular to ensure all backend work is done first.
+> **Note**: This phase is optional and only if time permits. Complete Phases 1-5 first.
 
-- [ ] **Service Split**:
-  - `ticket-service` - Inventory management (Tickets, Events, Venues)
-  - `booking-service` - Booking orchestration
-  - `payment-service` - Payment processing (mock)
-  - `notification-service` - Email/SMS notifications
-- [ ] **Inter-service Communication**:
-  - Message broker (RabbitMQ or NATS)
-  - gRPC or REST for sync calls
-- [ ] **Saga Pattern** - Orchestrate multi-service bookings with compensating transactions
-- [ ] **API Gateway** - Single entry point, routing, auth
-- [ ] **Service Discovery** - (Optional) Consul or built-in
-- [ ] **Docker Compose** - Run all services locally
-- [ ] **Kubernetes** - (Optional) Deploy to K8s cluster
+### Services to Extract:
+
+1. **ticket-service** - Ticket inventory (Events, Venues, Seats, Tickets)
+2. **booking-service** - Booking orchestration
+3. **notification-service** - Email/SMS (mock)
+
+### Tasks:
+
+- [ ] Create separate NX apps for each service
+- [ ] Set up RabbitMQ for inter-service communication
+- [ ] Implement Saga pattern for distributed transactions
+- [ ] Create API Gateway with routing
+- [ ] Update docker-compose for all services
 
 ---
 
-## Phase 7: Angular Frontend
+## Phase 7: Angular Frontend (Future)
 
 **Objective**: Build UI to visualize the booking flow.
 
-**Note**: All backend work (Phases 1-6) should be complete before starting the Angular frontend.
+> **Note**: All backend work (Phases 1-5) should be complete first.
 
-- [ ] Event listing page
-- [ ] Seat map visualization
-- [ ] Real-time ticket availability (WebSockets?)
-- [ ] Booking flow with loading states
-- [ ] Error handling UI
-- [ ] Optimistic UI updates
+### Pages:
+
+1. **Event List** - Browse events with pagination
+2. **Event Detail** - See available seats
+3. **Seat Selection** - Interactive seat map
+4. **Checkout** - Booking confirmation
+
+### Tasks:
+
+- [ ] Set up Angular routing
+- [ ] Create EventListComponent with pagination
+- [ ] Create EventDetailComponent with seat availability
+- [ ] Create SeatMapComponent (SVG-based)
+- [ ] Create BookingCheckoutComponent
+- [ ] Add loading states and error handling
+- [ ] Connect to API with HttpClient
 
 ---
 
@@ -219,6 +769,8 @@ alwaysApply: false
 | Transaction handling | Custom `@Transactional()` decorator      | Reusable, nesting via AsyncLocalStorage, repo swap  |
 | Pagination           | Generic `paginate()` utility             | DRY pattern, consistent response format             |
 | Error messages       | `createEntityMessageOverrides()`         | Type-safe, consistent DB error translations         |
+| Booking cancel       | POST not DELETE                          | Cancel is an action, not deletion of resource       |
+| Ticket endpoints     | GET only                                 | Tickets managed via Events/Bookings, not directly   |
 
 ---
 
@@ -232,3 +784,37 @@ alwaysApply: false
 | Config           | `registerAs` + `ConfigType`        | Section 5: Configuration   |
 | Exception Filter | `@Catch()` + `ExceptionFilter`     | Section 6: Building Blocks |
 | Logging          | Interceptor + `tap()`              | Section 6: Building Blocks |
+| Scheduling       | `@Cron()` + ScheduleModule         | @nestjs/schedule docs      |
+| Queues           | BullMQ + Processors                | @nestjs/bullmq docs        |
+
+---
+
+## API Endpoints Summary
+
+### Final API Shape (After Phase 1B)
+
+| Domain   | Method | Endpoint                          | Description             |
+| -------- | ------ | --------------------------------- | ----------------------- |
+| Events   | POST   | /events                           | Create event            |
+| Events   | GET    | /events                           | List events (paginated) |
+| Events   | GET    | /events/:id                       | Get event by ID         |
+| Events   | PATCH  | /events/:id                       | Update event            |
+| Events   | DELETE | /events/:id                       | Delete event            |
+| Venues   | POST   | /venues                           | Create venue            |
+| Venues   | GET    | /venues                           | List venues             |
+| Venues   | GET    | /venues/:id                       | Get venue by ID         |
+| Venues   | PATCH  | /venues/:id                       | Update venue            |
+| Venues   | DELETE | /venues/:id                       | Delete venue            |
+| Seats    | POST   | /seats                            | Create seat             |
+| Seats    | POST   | /seats/bulk                       | Create seats in bulk    |
+| Seats    | GET    | /seats                            | List seats (paginated)  |
+| Seats    | GET    | /seats/:id                        | Get seat by ID          |
+| Seats    | PATCH  | /seats/:id                        | Update seat             |
+| Seats    | DELETE | /seats/:id                        | Delete seat             |
+| Tickets  | GET    | /tickets/event/:eventId           | Get tickets for event   |
+| Tickets  | GET    | /tickets/event/:eventId/available | Get availability count  |
+| Bookings | POST   | /bookings                         | Create booking          |
+| Bookings | GET    | /bookings/:id                     | Get booking by ID       |
+| Bookings | POST   | /bookings/:id/cancel              | Cancel booking          |
+
+**Total: 19 endpoints**

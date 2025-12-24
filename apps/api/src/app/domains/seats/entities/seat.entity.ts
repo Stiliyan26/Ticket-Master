@@ -25,6 +25,6 @@ export class Seat extends BaseEntity {
   @Column()
   declare number: number;
 
-  @ManyToOne(() => Venue, { nullable: false })
+  @ManyToOne(() => Venue, { nullable: false, onDelete: 'CASCADE' })
   declare venue: Venue;
 }

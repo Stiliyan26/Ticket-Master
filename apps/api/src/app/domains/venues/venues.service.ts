@@ -13,6 +13,9 @@ export class VenuesService {
     private readonly venueRepository: Repository<Venue>
   ) {}
 
+  @Transactional<VenuesService>({
+    errorContext: 'VenuesService.create',
+  })
   create(createVenueDto: CreateVenueDto): Promise<Venue> {
     const venue = this.venueRepository.create(createVenueDto);
 
@@ -37,6 +40,9 @@ export class VenuesService {
     return venue;
   }
 
+  @Transactional<VenuesService>({
+    errorContext: 'VenuesService.update',
+  })
   async update(id: string, updateVenueDto: UpdateVenueDto): Promise<Venue> {
     const result = await this.venueRepository.update(id, updateVenueDto);
 
@@ -47,6 +53,9 @@ export class VenuesService {
     return this.findOne(id);
   }
 
+  @Transactional<VenuesService>({
+    errorContext: 'VenuesService.remove',
+  })
   async remove(id: string): Promise<void> {
     const venue = await this.findOne(id);
 

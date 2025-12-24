@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -54,7 +55,6 @@ export class EventsService {
 
     const savedEvent = await this.eventRepository.save(event);
 
-    // IF WE MADE A BATCH FOR TOO MANY TICKETS IS HERE SOME PROBLEM?
     const seats = await this.seatsService.findAllByVenue(venueId);
 
     await this.ticketsService.createTicketsForEvent(savedEvent, seats);
@@ -82,10 +82,22 @@ export class EventsService {
     );
   }
 
-  async findOne(id: string): Promise<Event> {
+  @Transactional<EventsService>({
+    repoKey: 'eventRepository',
+    errorContext: EventsService.name,
+    messageOverrides: createEntityMessageOverrides(
+      Event.name,
+      DB_OPERATIONS.READ
+    ),
+  })
+  async findOne(
+    id: string,
+    lock?: { mode: 'pessimistic_write' | 'pessimistic_read' }
+  ): Promise<Event> {
     const event = await this.eventRepository.findOne({
       where: { id },
       relations: { venue: true },
+      lock,
     });
 
     if (!event) {
@@ -105,21 +117,22 @@ export class EventsService {
   })
   async update(id: string, updateEventDto: UpdateEventDto): Promise<Event> {
     const { venueId, ...updateEventData } = updateEventDto;
-    const existingEvent = await this.findOne(id);
+    const existingEvent = await this.findOne(id, { mode: 'pessimistic_write' });
 
     if (venueId != null && venueId !== existingEvent.venue.id) {
       const hasSold = await this.ticketsService.hasSoldTickets(id);
 
       if (hasSold) {
-        throw new BadRequestException(
+        throw new UnprocessableEntityException(
           'Cannot change venue for an event with sold tickets'
         );
       }
 
       const venue = await this.venuesService.findOne(venueId);
-      existingEvent.venue = venue;
 
       await this.ticketsService.removeTicketsByEvent(id);
+
+      existingEvent.venue = venue;
       const seats = await this.seatsService.findAllByVenue(venueId);
       await this.ticketsService.createTicketsForEvent(existingEvent, seats);
 
@@ -136,6 +149,7 @@ export class EventsService {
         id,
         updateEventData.basePrice
       );
+
       this.logger.log(
         `Price updated for event "${existingEvent.name}". Available tickets updated.`
       );
@@ -155,7 +169,7 @@ export class EventsService {
     ),
   })
   async remove(id: string): Promise<void> {
-    const event = await this.findOne(id);
+    const event = await this.findOne(id, { mode: 'pessimistic_write' });
 
     const hasSold = await this.ticketsService.hasSoldTickets(id);
 

@@ -31,12 +31,16 @@ export class Ticket extends BaseEntity {
   @VersionColumn()
   declare version: number;
 
+  @Column({ type: 'timestamp', nullable: true })
+  declare heldAt: Date | null;
+
   @ManyToOne(() => Event, { nullable: false, onDelete: 'CASCADE' })
   declare event: Event;
 
-  @ManyToOne(() => Seat, { nullable: false })
+  @ManyToOne(() => Seat, { nullable: false, onDelete: 'CASCADE' })
   declare seat: Seat;
 
-  @ManyToOne(() => Booking, { nullable: true })
+  // If a booking is deleted/cancelled, tickets should become available again (not deleted).
+  @ManyToOne(() => Booking, { nullable: true, onDelete: 'SET NULL' })
   declare booking?: Booking;
 }

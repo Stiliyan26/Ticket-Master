@@ -10,7 +10,7 @@ import { Ticket } from './entities/ticket.entity';
 
 @ApiTags('tickets')
 @Controller('tickets')
-export class TicketController {
+export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
 
   @Get('/event/:eventId')

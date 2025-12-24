@@ -62,7 +62,6 @@ export class EventsController {
   })
   @ApiOkResponse({
     description: 'Return a paginated list of events.',
-    // Note: PaginatedResponse is a generic, we could use a custom schema or just document the items
   })
   findAll(
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,

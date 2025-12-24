@@ -48,7 +48,6 @@ export class Event extends BaseEntity {
     type: () => Venue,
     description: 'The venue where the event is hosted',
   })
-  @ManyToOne(() => Venue, { nullable: false })
-  // 🚨 IMPORTANT: Required venue relationship - events must belong to a venue
+  @ManyToOne(() => Venue, { nullable: false, onDelete: 'RESTRICT' })
   declare venue: Venue;
 }

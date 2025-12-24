@@ -2,7 +2,7 @@ import { Module, DynamicModule } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Ticket } from './entities/ticket.entity';
 import { TicketsService } from './tickets.service';
-import { TicketController } from './tickets.controller';
+import { TicketsController } from './tickets.controller';
 
 @Module({})
 export class TicketsModule {
@@ -10,7 +10,7 @@ export class TicketsModule {
     return {
       module: TicketsModule,
       imports: [TypeOrmModule.forFeature([Ticket])],
-      controllers: [TicketController],
+      controllers: [TicketsController],
       providers: [TicketsService],
       exports: [TicketsService],
       global: false,

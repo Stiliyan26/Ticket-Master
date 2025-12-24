@@ -77,6 +77,14 @@ export class SeatsService {
     );
   }
 
+  @Transactional<SeatsService>({
+    repoKey: 'seatRepository',
+    errorContext: SeatsService.name,
+    messageOverrides: createEntityMessageOverrides(
+      Seat.name,
+      DB_OPERATIONS.READ
+    ),
+  })
   async findById(id: string): Promise<Seat> {
     const seat = await this.seatRepository.findOne({
       where: { id },
@@ -92,6 +100,14 @@ export class SeatsService {
     return seat;
   }
 
+  @Transactional<SeatsService>({
+    repoKey: 'seatRepository',
+    errorContext: SeatsService.name,
+    messageOverrides: createEntityMessageOverrides(
+      Seat.name,
+      DB_OPERATIONS.UPDATE
+    ),
+  })
   async update(id: string, updateSeatDto: UpdateSeatDto): Promise<Seat> {
     const seat = await this.findById(id);
 
@@ -100,6 +116,7 @@ export class SeatsService {
 
       seat.venue = venue;
     }
+
     this.seatRepository.merge(seat, updateSeatDto);
 
     return this.seatRepository.save(seat);
@@ -118,7 +135,7 @@ export class SeatsService {
     await this.seatRepository.remove(seat);
   }
 
-  // TODO: CHECK IF I NEED TO REMVOE it
+  // TODO: CHECK IF I NEED TO REMOVE it
   @Transactional<SeatsService>({
     repoKey: 'seatRepository',
     errorContext: SeatsService.name,
