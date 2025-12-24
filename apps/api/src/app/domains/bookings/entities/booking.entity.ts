@@ -1,6 +1,6 @@
 import { Column, Entity, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base-entity';
-import { Ticket } from './ticket.entity';
+import { Ticket } from '../../tickets/entities/ticket.entity';
 
 export enum BookingStatus {
   PENDING = 'PENDING',

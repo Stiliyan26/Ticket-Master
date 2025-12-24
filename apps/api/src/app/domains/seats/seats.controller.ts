@@ -10,7 +10,20 @@ import {
   Query,
   DefaultValuePipe,
   ParseIntPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiBadRequestResponse,
+  ApiQuery,
+  ApiBody,
+} from '@nestjs/swagger';
 
 import { SeatsService } from './seats.service';
 import { CreateSeatDto } from './dto/create-seat.dto';
@@ -18,11 +31,24 @@ import { UpdateSeatDto } from './dto/update-seat.dto';
 import { Seat } from './entities/seat.entity';
 import { PaginatedResponse } from '../../common/utils/pagination.util';
 
+@ApiTags('seats')
 @Controller('seats')
 export class SeatsController {
   constructor(private readonly seatsService: SeatsService) {}
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create one or multiple seats' })
+  @ApiBody({
+    type: CreateSeatDto,
+    isArray: true,
+    description: 'Can be a single seat object or an array of seats',
+  })
+  @ApiCreatedResponse({
+    description: 'The seats have been successfully created.',
+    type: [Seat],
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data.' })
   async create(
     @Body() createSeatDtos: CreateSeatDto | CreateSeatDto[]
   ): Promise<Seat[]> {
@@ -34,19 +60,59 @@ export class SeatsController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Get all seats with pagination' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of items per page',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiOkResponse({
+    description: 'Return a paginated list of seats.',
+  })
   async findAll(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number
   ): Promise<PaginatedResponse<Seat>> {
     return this.seatsService.findAll(page, limit);
   }
 
+  @Get('/venue/:venueId')
+  @ApiOperation({ summary: 'Get all seats for a specific venue' })
+  @ApiOkResponse({
+    description: 'Return a list of seats for the given venue.',
+    type: [Seat],
+  })
+  @ApiNotFoundResponse({ description: 'Venue not found.' })
+  async findAllByVenue(@Param('venueId', ParseUUIDPipe) venueId: string) {
+    return this.seatsService.findAllByVenue(venueId);
+  }
+
   @Get(':id')
+  @ApiOperation({ summary: 'Get a seat by id' })
+  @ApiOkResponse({
+    description: 'Return the seat found by id.',
+    type: Seat,
+  })
+  @ApiNotFoundResponse({ description: 'Seat not found.' })
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Seat> {
     return this.seatsService.findById(id);
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update a seat' })
+  @ApiOkResponse({
+    description: 'The seat has been successfully updated.',
+    type: Seat,
+  })
+  @ApiNotFoundResponse({ description: 'Seat not found.' })
+  @ApiBadRequestResponse({ description: 'Invalid input data.' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateSeatDto: UpdateSeatDto
@@ -55,6 +121,12 @@ export class SeatsController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a seat' })
+  @ApiNoContentResponse({
+    description: 'The seat has been successfully deleted.',
+  })
+  @ApiNotFoundResponse({ description: 'Seat not found.' })
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.seatsService.remove(id);
   }

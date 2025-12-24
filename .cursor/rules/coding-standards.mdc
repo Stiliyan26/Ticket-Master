@@ -1,6 +1,6 @@
 ---
 description: Core coding standards for naming, formatting, structure, and best practices.
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Coding Standards

@@ -2,7 +2,7 @@ import { Column, Entity, ManyToOne, Unique, VersionColumn } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base-entity';
 import { Event } from '../../events/entities/event.entity';
 import { Seat } from '../../seats/entities/seat.entity';
-import { Booking } from './booking.entity';
+import { Booking } from '../../bookings/entities/booking.entity';
 
 export enum TicketStatus {
   AVAILABLE = 'AVAILABLE',
@@ -10,8 +10,8 @@ export enum TicketStatus {
   SOLD = 'SOLD',
 }
 
-// Type-safe unique constraint using keyof - catches renames at compile time!
 type TicketUniqueFields = keyof Pick<Ticket, 'event' | 'seat'>;
+
 @Entity('tickets')
 @Unique('unique_ticket_per_event_seat', [
   'event',
@@ -31,7 +31,7 @@ export class Ticket extends BaseEntity {
   @VersionColumn()
   declare version: number;
 
-  @ManyToOne(() => Event, { nullable: false })
+  @ManyToOne(() => Event, { nullable: false, onDelete: 'CASCADE' })
   declare event: Event;
 
   @ManyToOne(() => Seat, { nullable: false })

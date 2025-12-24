@@ -23,6 +23,10 @@ export class VenuesService {
     return this.venueRepository.find();
   }
 
+  // TODO: Check is there is a problem to put transactional here
+  @Transactional({
+    errorContext: 'VenuesService.findById',
+  })
   async findOne(id: string): Promise<Venue> {
     const venue = await this.venueRepository.findOne({ where: { id } });
 

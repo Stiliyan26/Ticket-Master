@@ -57,70 +57,6 @@ export class SeatsService {
     return this.seatRepository.save(entities);
   }
 
-  private getUniqueVenueIds(dtos: CreateSeatDto[]): string[] {
-    const set = dtos.reduce((acc, dto) => {
-      acc.add(dto.venueId);
-
-      return acc;
-    }, new Set<string>());
-
-    return [...set];
-  }
-
-  private validateBatchSize(dtos: CreateSeatDto[]): void {
-    if (dtos.length === 0) {
-      throw new BadRequestException(SEAT_ERROR_MESSAGES.EMPTY_BATCH);
-    }
-
-    if (dtos.length > SEAT_LIMITS.MAX_BATCH_SIZE) {
-      throw new BadRequestException(
-        SEAT_ERROR_MESSAGES.BATCH_TOO_LARGE(SEAT_LIMITS.MAX_BATCH_SIZE)
-      );
-    }
-  }
-
-  private async getVenuesMap(venueIds: string[]): Promise<Map<string, Venue>> {
-    const venuesFromDb = await this.venuesService.findByIds(venueIds);
-
-    const venuesMap = venuesFromDb.reduce((map, venue) => {
-      map.set(venue.id, venue);
-
-      return map;
-    }, new Map<string, Venue>());
-
-    const missingIds = venueIds.filter((id) => !venuesMap.has(id));
-
-    if (missingIds.length > 0) {
-      throw new NotFoundException(
-        SEAT_ERROR_MESSAGES.VENUE_NOT_FOUND(missingIds.join(', '))
-      );
-    }
-
-    return venuesMap;
-  }
-
-  private mapSeatDtoToEntity(
-    dtos: CreateSeatDto[],
-    venuesMap: Map<string, Venue>
-  ): Seat[] {
-    return dtos.map((dto) => {
-      const { venueId, ...seatDto } = dto;
-
-      const venue = venuesMap.get(venueId);
-
-      if (!venue) {
-        throw new NotFoundException(
-          SEAT_ERROR_MESSAGES.VENUE_NOT_FOUND(venueId)
-        );
-      }
-
-      return this.seatRepository.create({
-        ...seatDto,
-        venue,
-      });
-    });
-  }
-
   async findAll(page: number, limit: number): Promise<PaginatedResponse<Seat>> {
     return paginate(
       this.seatRepository,
@@ -164,8 +100,7 @@ export class SeatsService {
 
       seat.venue = venue;
     }
-    //TODO: CHECK IF THERE IS A CLEANER WAY
-    Object.assign(seat, updateSeatDto);
+    this.seatRepository.merge(seat, updateSeatDto);
 
     return this.seatRepository.save(seat);
   }
@@ -181,5 +116,86 @@ export class SeatsService {
   async remove(id: string): Promise<void> {
     const seat = await this.findById(id);
     await this.seatRepository.remove(seat);
+  }
+
+  // TODO: CHECK IF I NEED TO REMVOE it
+  @Transactional<SeatsService>({
+    repoKey: 'seatRepository',
+    errorContext: SeatsService.name,
+    messageOverrides: createEntityMessageOverrides(
+      Seat.name,
+      DB_OPERATIONS.READ
+    ),
+  })
+  async findAllByVenue(venueId: string): Promise<Seat[]> {
+    return this.seatRepository.find({
+      where: { venue: { id: venueId } },
+    });
+  }
+
+  // HELPER METHODS
+
+  private validateBatchSize(dtos: CreateSeatDto[]): void {
+    if (dtos.length === 0) {
+      throw new BadRequestException(SEAT_ERROR_MESSAGES.EMPTY_BATCH);
+    }
+
+    if (dtos.length > SEAT_LIMITS.MAX_BATCH_SIZE) {
+      throw new BadRequestException(
+        SEAT_ERROR_MESSAGES.BATCH_TOO_LARGE(SEAT_LIMITS.MAX_BATCH_SIZE)
+      );
+    }
+  }
+
+  private getUniqueVenueIds(dtos: CreateSeatDto[]): string[] {
+    const set = dtos.reduce((acc, dto) => {
+      acc.add(dto.venueId);
+
+      return acc;
+    }, new Set<string>());
+
+    return [...set];
+  }
+
+  private async getVenuesMap(venueIds: string[]): Promise<Map<string, Venue>> {
+    const venuesFromDb = await this.venuesService.findByIds(venueIds);
+
+    const venuesMap = venuesFromDb.reduce((map, venue) => {
+      map.set(venue.id, venue);
+
+      return map;
+    }, new Map<string, Venue>());
+
+    const missingIds = venueIds.filter((id) => !venuesMap.has(id));
+
+    if (missingIds.length > 0) {
+      throw new NotFoundException(
+        SEAT_ERROR_MESSAGES.VENUE_NOT_FOUND(missingIds.join(', '))
+      );
+    }
+
+    return venuesMap;
+  }
+
+  private mapSeatDtoToEntity(
+    dtos: CreateSeatDto[],
+    venuesMap: Map<string, Venue>
+  ): Seat[] {
+    return dtos.map((dto) => {
+      const { venueId, ...seatDto } = dto;
+
+      const venue = venuesMap.get(venueId);
+
+      if (!venue) {
+        throw new NotFoundException(
+          SEAT_ERROR_MESSAGES.VENUE_NOT_FOUND(venueId)
+        );
+      }
+
+      return this.seatRepository.create({
+        ...seatDto,
+        venue,
+      });
+    });
   }
 }

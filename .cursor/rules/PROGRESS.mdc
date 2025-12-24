@@ -1,13 +1,13 @@
 ---
 description: Step-by-step implementation roadmap for Ticket Master. Update checkboxes as you complete each task.
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Implementation Roadmap: Ticket Master
 
 **Goal**: Mid-level → Distributed Systems Engineer by **Jan 5th**
 **Focus**: Backend first → Angular later
-**Progress**: Phase 1/7 Complete ✅ | DTOs & Validation Complete ✅ | Ready for Services | Backend First → Angular Last
+**Progress**: Phase 1/7 In Progress ⏳ | Services: Events ✅, Venues ✅, Seats ✅ | Next: Tickets & Bookings
 
 ---
 
@@ -90,7 +90,7 @@ alwaysApply: true
 
 ### 📋 Next - Remaining Services (CURRENT)
 
-- [ ] **EventService** - CRUD + **pre-generate tickets on create**
+- [x] **EventService** - CRUD + **pre-generate tickets on create**
 - [ ] **TicketService** - Status transitions (AVAILABLE → HELD → SOLD)
 - [ ] **BookingService** - Transaction logic (hold tickets + create booking)
 

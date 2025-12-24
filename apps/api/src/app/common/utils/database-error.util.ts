@@ -14,6 +14,7 @@ export const DB_OPERATIONS = {
   CREATE: 'create',
   UPDATE: 'update',
   REMOVE: 'remove',
+  READ: 'read',
 } as const;
 
 export type DbOperation = (typeof DB_OPERATIONS)[keyof typeof DB_OPERATIONS];

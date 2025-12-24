@@ -1,6 +1,6 @@
 ---
 description: Best practices for using Zod for schema validation and type inference in TypeScript.
-globs: ['**/*.ts']
+alwaysApply: false
 ---
 
 # Zod Best Practices

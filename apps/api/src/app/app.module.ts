@@ -6,6 +6,7 @@ import { VenuesModule } from './domains/venues/venues.module';
 import { SeatsModule } from './domains/seats/seats.module';
 import { EventsModule } from './domains/events/events.module';
 import { BookingsModule } from './domains/bookings/bookings.module';
+import { TicketsModule } from './domains/tickets/tickets.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { BookingsModule } from './domains/bookings/bookings.module';
     VenuesModule.forRoot(),
     EventsModule.forRoot(),
     BookingsModule.forRoot(),
+    TicketsModule.forRoot(),
   ],
   controllers: [],
   providers: [],

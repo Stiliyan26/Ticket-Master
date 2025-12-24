@@ -1,6 +1,6 @@
 ---
 description: Error handling strategy - when to throw what, exception hierarchy.
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Error Handling Strategy

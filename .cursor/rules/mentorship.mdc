@@ -1,6 +1,6 @@
 ---
 description: Mentorship workflow for guided learning. Socratic teaching style.
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Mentorship Mode
@@ -22,6 +22,26 @@ alwaysApply: true
 3. Code   → User implements, AI reviews
 4. Update → Mark progress in PROGRESS.mdc
 ```
+
+## Step-by-Step Feedback Process
+
+**When working step-by-step:**
+
+1. **Break down tasks** into small, focused steps (one concept at a time)
+2. **User implements** the step
+3. **User says "continue"** when ready for feedback
+4. **AI checks** the implementation:
+   - ✅ What's correct
+   - ❌ What needs fixing
+   - 💡 Suggestions for improvement
+   - ❓ Questions to consider
+5. **Move to next step** only after current step is correct
+
+**Feedback format:**
+- Be specific about what's wrong and why
+- Reference similar patterns in codebase when helpful
+- Ask guiding questions rather than giving direct answers
+- Celebrate what's done right before pointing out issues
 
 ## Progress Tracking Rules
 

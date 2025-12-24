@@ -3,14 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BookingsService } from './bookings.service';
 import { BookingsController } from './bookings.controller';
 import { Booking } from './entities/booking.entity';
-import { Ticket } from './entities/ticket.entity';
+import { TicketsModule } from '../tickets/tickets.module';
 
 @Module({})
 export class BookingsModule {
   static forRoot(): DynamicModule {
     return {
       module: BookingsModule,
-      imports: [TypeOrmModule.forFeature([Booking, Ticket])],
+      imports: [TypeOrmModule.forFeature([Booking]), TicketsModule.forRoot()],
       controllers: [BookingsController],
       providers: [BookingsService],
       exports: [BookingsService],
