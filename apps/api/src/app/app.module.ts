@@ -7,12 +7,14 @@ import { SeatsModule } from './domains/seats/seats.module';
 import { EventsModule } from './domains/events/events.module';
 import { BookingsModule } from './domains/bookings/bookings.module';
 import { TicketsModule } from './domains/tickets/tickets.module';
+import databaseConfig from './database/database.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      validate,
+      //validate,
+      load: [databaseConfig],
     }),
     DatabaseModule,
     SeatsModule.forRoot(),
