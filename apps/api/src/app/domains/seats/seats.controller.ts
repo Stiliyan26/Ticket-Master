@@ -31,6 +31,7 @@ import { SeatResultDto } from './dto/seat-result.dto';
 import { Seat } from './entities/seat.entity';
 import { PaginatedResponse } from '../../common/utils/pagination.util';
 import { Serialize } from '../../common/interceptors/serialize.interceptor';
+import { createPaginatedResponseDto } from '../../common/dto/paginated-response.dto';
 
 @ApiTags('seats')
 @Controller('seats')
@@ -78,7 +79,7 @@ export class SeatsController {
   @ApiOkResponse({
     description: 'Return a paginated list of seats.',
   })
-  @Serialize(SeatResultDto)
+  @Serialize(createPaginatedResponseDto(SeatResultDto))
   async findAll(
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number

@@ -30,6 +30,7 @@ import { PaginatedResponse } from '../../common/utils/pagination.util';
 import { Event } from './entities/event.entity';
 import { Serialize } from '../../common/interceptors/serialize.interceptor';
 import { EventResultDto } from './dto/event-result.dto';
+import { createPaginatedResponseDto } from '../../common/dto/paginated-response.dto';
 
 @ApiTags('events')
 @Controller('events')
@@ -66,7 +67,7 @@ export class EventsController {
   @ApiOkResponse({
     description: 'Return a paginated list of events.',
   })
-  @Serialize(EventResultDto)
+  @Serialize(createPaginatedResponseDto(EventResultDto))
   findAll(
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number

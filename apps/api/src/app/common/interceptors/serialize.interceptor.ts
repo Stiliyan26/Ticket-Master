@@ -15,15 +15,6 @@ export class SerializeInterceptor<T> implements NestInterceptor {
   constructor(private dto: ClassConstructor<T>) {}
 
   intercept(context: ExecutionContext, next: CallHandler) {
-    return next.handle().pipe(
-      map((data) => {
-        // Handle arrays
-        if (Array.isArray(data)) {
-          return plainToInstance(this.dto, data);
-        }
-        // Handle single objects
-        return plainToInstance(this.dto, data);
-      })
-    );
+    return next.handle().pipe(map((data) => plainToInstance(this.dto, data)));
   }
 }

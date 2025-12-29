@@ -194,4 +194,8 @@ export class EventsService {
 
     this.logger.log(`Event "${event.name}" and its tickets were removed.`);
   }
+
+  async exists(eventId: string) {
+    return this.eventRepository.exists({ where: { id: eventId } });
+  }
 }

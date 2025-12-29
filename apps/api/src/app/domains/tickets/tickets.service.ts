@@ -15,6 +15,7 @@ import {
   DB_OPERATIONS,
 } from '../../common/utils/database-error.util';
 import { Booking } from '../bookings/entities/booking.entity';
+import { EventsService } from '../events/events.service';
 
 export interface TicketQueryCountResult {
   available: string;
@@ -34,7 +35,8 @@ export class TicketsService {
 
   constructor(
     @InjectRepository(Ticket)
-    public readonly ticketRepository: Repository<Ticket>
+    public readonly ticketRepository: Repository<Ticket>,
+    private readonly eventService: EventsService
   ) {}
 
   @Transactional<TicketsService>({
@@ -227,6 +229,7 @@ export class TicketsService {
     tickets.forEach((t) => {
       t.status = TicketStatus.SOLD;
       t.booking = booking;
+      t.heldAt = null;
     });
 
     const finalizedTickets = await this.ticketRepository.save(tickets);
@@ -247,6 +250,14 @@ export class TicketsService {
       .where(`${this.ALIAS}.eventId = :eventId`, { eventId })
       .setParameter('status', TicketStatus.AVAILABLE)
       .getRawOne<TicketQueryCountResult>();
+
+    if (!result || result.total === '0') {
+      const eventExists = await this.eventService.exists(eventId);
+
+      if (!eventExists) {
+        throw new NotFoundException(`Event with ID ${eventId} not found`);
+      }
+    }
 
     return {
       available: Number(result?.available ?? 0),
