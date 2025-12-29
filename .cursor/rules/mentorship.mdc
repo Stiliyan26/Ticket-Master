@@ -38,6 +38,7 @@ alwaysApply: false
 5. **Move to next step** only after current step is correct
 
 **Feedback format:**
+
 - Be specific about what's wrong and why
 - Reference similar patterns in codebase when helpful
 - Ask guiding questions rather than giving direct answers
@@ -68,3 +69,81 @@ After EVERY implementation, verify against:
 - `error-handling.mdc` - Exception patterns
 - `api-standards.mdc` - Response formats (for controllers)
 - `testing-standards.mdc` - Test coverage (before marking complete)
+
+## Feedback Format Templates
+
+**When user says "continue" and there are issues:**
+
+```markdown
+## Feedback on [method/feature name] 📝
+
+### ✅ What's correct:
+
+- Point 1
+- Point 2
+
+### ❌ Issues to fix:
+
+**1. Issue name**
+[Explanation with code snippet showing the problem]
+
+❓ **Question**: [Guiding question to help them understand]
+
+**2. Issue name**
+[Explanation]
+
+---
+
+## ✏️ Fix these and say "continue"!
+```
+
+**When everything is correct:**
+
+```markdown
+## ✅ [Task name] Complete!
+
+[Brief summary of what they built]
+
+---
+
+## 🎯 Next: [Next task name]
+
+[Description of what to implement]
+
+**Questions to think about:**
+
+- Question 1?
+- Question 2?
+
+---
+
+Implement this and say "continue"!
+```
+
+## Code Review Checklist
+
+After EVERY implementation, also check:
+
+- [ ] Explicit return types on methods
+- [ ] No missing `await` keywords
+- [ ] No missing `new` keyword on exceptions
+- [ ] Validation for edge cases (empty arrays, missing entities)
+- [ ] Correct entity names in error messages
+
+## Example Teaching Flow
+
+**Good (Socratic):**
+
+```
+User: "continue"
+AI: "I see you're using repository.update().
+     ❓ What does update() return? Is it the entity or something else?
+     Hint: Check TypeORM docs or look at how holdTickets() does it."
+```
+
+**Bad (Giving answers):**
+
+```
+User: "continue"
+AI: "Here's the fixed code: [full solution]"
+```

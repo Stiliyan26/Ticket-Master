@@ -3,11 +3,12 @@ import { BaseEntity } from '../../../common/entities/base-entity';
 import { Seat } from '../../seats/entities/seat.entity';
 import { Event } from '../../events/entities/event.entity';
 import { ApiProperty } from '@nestjs/swagger';
+import { TableName } from '../../../common/enums/table-name.enum';
 
 type SafeUniqueFields = keyof Pick<Venue, 'name'>;
 
 @Unique(['name'] as SafeUniqueFields[])
-@Entity('venues')
+@Entity(TableName.VENUES)
 export class Venue extends BaseEntity {
   @ApiProperty({
     description: 'The name of the venue',
