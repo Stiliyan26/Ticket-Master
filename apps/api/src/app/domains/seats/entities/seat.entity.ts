@@ -1,6 +1,7 @@
 import { Column, Entity, Index, ManyToOne, Unique } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base-entity';
 import { Venue } from '../../venues/entities/venue.entity';
+import { TableName } from '../../../common/enums/table-name.enum';
 
 // Type-safe unique constraint using keyof - catches renames at compile time!
 type SeatUniqueFields = keyof Pick<
@@ -14,7 +15,7 @@ type SeatUniqueFields = keyof Pick<
   'number',
 ] as SeatUniqueFields[])
 @Index('idx_seats_venue_section', ['venue', 'section'])
-@Entity('seats')
+@Entity(TableName.SEATS)
 export class Seat extends BaseEntity {
   @Column()
   declare section: string;

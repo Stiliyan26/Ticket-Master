@@ -24,12 +24,13 @@ import {
   ApiQuery,
   ApiBody,
 } from '@nestjs/swagger';
-
 import { SeatsService } from './seats.service';
 import { CreateSeatDto } from './dto/create-seat.dto';
 import { UpdateSeatDto } from './dto/update-seat.dto';
+import { SeatResultDto } from './dto/seat-result.dto';
 import { Seat } from './entities/seat.entity';
 import { PaginatedResponse } from '../../common/utils/pagination.util';
+import { Serialize } from '../../common/interceptors/serialize.interceptor';
 
 @ApiTags('seats')
 @Controller('seats')
@@ -46,9 +47,10 @@ export class SeatsController {
   })
   @ApiCreatedResponse({
     description: 'The seats have been successfully created.',
-    type: [Seat],
+    type: [SeatResultDto],
   })
   @ApiBadRequestResponse({ description: 'Invalid input data.' })
+  @Serialize(SeatResultDto)
   async create(
     @Body() createSeatDtos: CreateSeatDto | CreateSeatDto[]
   ): Promise<Seat[]> {
@@ -76,6 +78,7 @@ export class SeatsController {
   @ApiOkResponse({
     description: 'Return a paginated list of seats.',
   })
+  @Serialize(SeatResultDto)
   async findAll(
     @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number
@@ -87,10 +90,13 @@ export class SeatsController {
   @ApiOperation({ summary: 'Get all seats for a specific venue' })
   @ApiOkResponse({
     description: 'Return a list of seats for the given venue.',
-    type: [Seat],
+    type: [SeatResultDto],
   })
   @ApiNotFoundResponse({ description: 'Venue not found.' })
-  async findAllByVenue(@Param('venueId', ParseUUIDPipe) venueId: string) {
+  @Serialize(SeatResultDto)
+  async findAllByVenue(
+    @Param('venueId', ParseUUIDPipe) venueId: string
+  ): Promise<Seat[]> {
     return this.seatsService.findAllByVenue(venueId);
   }
 
@@ -98,9 +104,10 @@ export class SeatsController {
   @ApiOperation({ summary: 'Get a seat by id' })
   @ApiOkResponse({
     description: 'Return the seat found by id.',
-    type: Seat,
+    type: SeatResultDto,
   })
   @ApiNotFoundResponse({ description: 'Seat not found.' })
+  @Serialize(SeatResultDto)
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Seat> {
     return this.seatsService.findById(id);
   }
@@ -109,10 +116,11 @@ export class SeatsController {
   @ApiOperation({ summary: 'Update a seat' })
   @ApiOkResponse({
     description: 'The seat has been successfully updated.',
-    type: Seat,
+    type: SeatResultDto,
   })
   @ApiNotFoundResponse({ description: 'Seat not found.' })
   @ApiBadRequestResponse({ description: 'Invalid input data.' })
+  @Serialize(SeatResultDto)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateSeatDto: UpdateSeatDto

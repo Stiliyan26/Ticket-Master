@@ -2,6 +2,7 @@ import { Column, Entity, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base-entity';
 import { Venue } from '../../venues/entities/venue.entity';
 import { ApiProperty } from '@nestjs/swagger';
+import { TableName } from '../../../common/enums/table-name.enum';
 
 export enum EventStatus {
   DRAFT = 'DRAFT',
@@ -9,7 +10,7 @@ export enum EventStatus {
   CANCELLED = 'CANCELLED',
 }
 
-@Entity('events')
+@Entity(TableName.EVENTS)
 export class Event extends BaseEntity {
   @ApiProperty({
     description: 'The name of the event',

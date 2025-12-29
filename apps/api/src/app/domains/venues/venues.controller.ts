@@ -22,7 +22,9 @@ import {
 import { VenuesService } from './venues.service';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
+import { VenueResultDto } from './dto/venue-result.dto';
 import { Venue } from './entities/venue.entity';
+import { Serialize } from '../../common/interceptors/serialize.interceptor';
 
 @ApiTags('venues')
 @Controller('venues')
@@ -34,10 +36,11 @@ export class VenuesController {
   @ApiOperation({ summary: 'Create a new venue' })
   @ApiCreatedResponse({
     description: 'The venue has been successfully created.',
-    type: Venue,
+    type: VenueResultDto,
   })
   @ApiBadRequestResponse({ description: 'Invalid input data.' })
-  create(@Body() createVenueDto: CreateVenueDto) {
+  @Serialize(VenueResultDto)
+  create(@Body() createVenueDto: CreateVenueDto): Promise<Venue> {
     return this.venuesService.create(createVenueDto);
   }
 
@@ -45,9 +48,10 @@ export class VenuesController {
   @ApiOperation({ summary: 'Get all venues' })
   @ApiOkResponse({
     description: 'Return all venues.',
-    type: [Venue],
+    type: [VenueResultDto],
   })
-  findAll() {
+  @Serialize(VenueResultDto)
+  findAll(): Promise<Venue[]> {
     return this.venuesService.findAll();
   }
 
@@ -55,25 +59,27 @@ export class VenuesController {
   @ApiOperation({ summary: 'Get a venue by id' })
   @ApiOkResponse({
     description: 'Return the venue found by id.',
-    type: Venue,
+    type: VenueResultDto,
   })
   @ApiNotFoundResponse({ description: 'Venue not found.' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.venuesService.findOne(id);
+  @Serialize(VenueResultDto)
+  findById(@Param('id', ParseUUIDPipe) id: string): Promise<Venue> {
+    return this.venuesService.findById(id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a venue' })
   @ApiOkResponse({
     description: 'The venue has been successfully updated.',
-    type: Venue,
+    type: VenueResultDto,
   })
   @ApiNotFoundResponse({ description: 'Venue not found.' })
   @ApiBadRequestResponse({ description: 'Invalid input data.' })
+  @Serialize(VenueResultDto)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateVenueDto: UpdateVenueDto
-  ) {
+  ): Promise<Venue> {
     return this.venuesService.update(id, updateVenueDto);
   }
 
@@ -84,7 +90,7 @@ export class VenuesController {
     description: 'The venue has been successfully deleted.',
   })
   @ApiNotFoundResponse({ description: 'Venue not found.' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.venuesService.remove(id);
   }
 }

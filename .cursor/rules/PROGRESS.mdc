@@ -7,7 +7,7 @@ alwaysApply: false
 
 **Goal**: Mid-level → Distributed Systems Engineer by **Jan 5th**
 **Focus**: Backend first → Angular later
-**Progress**: Phase 1/7 In Progress ⏳ | Services: Events ✅, Venues ✅, Seats ✅ | Next: Tickets & Bookings
+**Progress**: Phase 1B ✅ COMPLETED | Ready for Phase 2 (Distributed Locking)
 
 ---
 
@@ -104,11 +104,29 @@ alwaysApply: false
 - Map-based lookups for O(1) venue resolution in bulk operations
 - Separation of concerns: validation → lookup → mapping → save
 
+### ✅ COMPLETED - Generic Repository Layer
+
+- [x] **BaseRepository** - Abstract class with common CRUD operations (`create`, `save`, `findById`, `findOne`, `findMany`, `findWithPagination`, `count`, `exists`, `update`, `merge`, `remove`, `delete`, `softDelete`, `restore`)
+- [x] **repository.types.ts** - Type-safe query options (`FindOneOptions`, `FindManyOptions`, `PaginationOptions`, `PaginatedResult`)
+- [x] **repository.provider.ts** - NestJS DI factory (`createRepositoryProvider`, `createRepositoryProviders`)
+- [x] **VenueRepository** - Example concrete implementation with domain-specific methods
+- [x] **@Transactional compatibility** - Updated decorator to work with both `Repository` and `BaseRepository`
+
+#### 🏆 Repository Layer Key Learnings:
+
+- Repository pattern abstracts TypeORM details from services
+- Generic base class with type-safe operations for any entity
+- Factory provider pattern for NestJS DI integration
+- `instanceof` checks for both raw `Repository` and `BaseRepository` wrapper
+- Concrete repositories extend base with domain-specific queries
+
 ---
 
-## 📋 Phase 1B: Complete Ticket & Booking Domains (In Progress ⏳)
+## 📋 Phase 1B: Complete Ticket & Booking Domains ✅ COMPLETED
 
 **Objective**: Complete the core business engine with strict domain boundaries.
+
+**🎉 Achievement**: Full booking flow with ticket hold/release/purchase, production-grade error handling!
 
 ### 🎫 Task 1: TicketsService - Hold/Release/Finalize Methods
 
@@ -174,10 +192,10 @@ Add `heldAt` column:
 heldAt: Date | null;
 ```
 
-- [ ] **Add `heldAt` column to Ticket entity**
-- [ ] **Implement `holdTickets()` method**
-- [ ] **Implement `releaseTickets()` method**
-- [ ] **Implement `finalizePurchase()` method**
+- [x] **Add `heldAt` column to Ticket entity**
+- [x] **Implement `holdTickets()` method**
+- [x] **Implement `releaseTickets()` method**
+- [x] **Implement `finalizePurchase()` method**
 
 ---
 
@@ -216,9 +234,9 @@ async getAvailability(@Param('eventId', ParseUUIDPipe) eventId: string) {
 }
 ```
 
-- [ ] **Add `countAvailable()` method to TicketsService**
-- [ ] **Add GET `/tickets/event/:eventId/available` endpoint**
-- [ ] **Verify controller has only 2 GET endpoints (no POST/PATCH/DELETE)**
+- [x] **Add `countAvailable()` method to TicketsService**
+- [x] **Add GET `/tickets/event/:eventId/available` endpoint**
+- [x] **Verify controller has only 2 GET endpoints (no POST/PATCH/DELETE)**
 
 ---
 
@@ -256,11 +274,11 @@ async create(dto: CreateBookingDto): Promise<Booking>
 // On error: Transaction rolls back automatically (tickets released)
 ```
 
-#### 3.3 `findOne(id: string): Promise<Booking>`
+#### 3.3 `findById(id: string): Promise<Booking>`
 
 ```typescript
 // Signature
-async findOne(id: string): Promise<Booking>
+async findById(id: string): Promise<Booking>
 
 // Behavior:
 // 1. Find booking by ID with relations: { tickets: { seat: true, event: true } }
@@ -285,10 +303,10 @@ async cancel(id: string): Promise<void>
 // 7. Save booking
 ```
 
-- [ ] **Implement `create()` with ticket holding and purchase finalization**
-- [ ] **Implement `findOne()` with proper relations**
-- [ ] **Implement `cancel()` with ticket release**
-- [ ] **Remove placeholder methods (`findAll`, `update`, `remove`)**
+- [x] **Implement `create()` with ticket holding and purchase finalization**
+- [x] **Implement `findById()` with proper relations**
+- [x] **Implement `cancel()` with ticket release**
+- [x] **Remove placeholder methods (`findAll`, `update`, `remove`)**
 
 ---
 
@@ -301,7 +319,7 @@ async cancel(id: string): Promise<void>
 | Method | Path                   | Description          | Service Method |
 | ------ | ---------------------- | -------------------- | -------------- |
 | POST   | `/bookings`            | Create a new booking | `create()`     |
-| GET    | `/bookings/:id`        | Get booking by ID    | `findOne()`    |
+| GET    | `/bookings/:id`        | Get booking by ID    | `findById()`   |
 | POST   | `/bookings/:id/cancel` | Cancel a booking     | `cancel()`     |
 
 **REMOVE**: GET `/bookings` (findAll), PATCH `/bookings/:id`, DELETE `/bookings/:id`
@@ -336,15 +354,15 @@ export class BookingsController {
 }
 ```
 
-- [ ] **Update controller to have exactly 3 endpoints**
-- [ ] **Remove findAll, update, remove methods and endpoints**
-- [ ] **Add POST `/bookings/:id/cancel` endpoint**
+- [x] **Update controller to have exactly 3 endpoints**
+- [x] **Remove findAll, update, remove methods and endpoints**
+- [x] **Add POST `/bookings/:id/cancel` endpoint**
 
 ---
 
 ### 🛠️ Task 5: Production Infrastructure
 
-**Files to create**:
+**File to create**:
 
 #### 5.1 GlobalExceptionFilter
 
@@ -357,33 +375,21 @@ export class BookingsController {
 // Register in main.ts: app.useGlobalFilters(new GlobalExceptionFilter())
 ```
 
-#### 5.2 LoggingInterceptor
-
-**File**: `apps/api/src/app/common/interceptors/logging.interceptor.ts`
-
-```typescript
-// Logs: [METHOD] /path - duration ms
-// Uses Logger from @nestjs/common
-// Register in main.ts: app.useGlobalInterceptors(new LoggingInterceptor())
-```
-
-- [ ] **Create GlobalExceptionFilter**
-- [ ] **Create LoggingInterceptor**
-- [ ] **Register both in main.ts**
+- [x] **Create GlobalExceptionFilter**
+- [x] **Register in main.ts**
 
 ---
 
-### ✅ Task 6: Phase 1B Completion Checklist
+### ✅ Task 6: Phase 1B Completion Checklist ✅ VERIFIED
 
-Before marking Phase 1B complete, verify:
+All items verified:
 
-- [ ] **TicketsService has 8 methods**: `createTicketsForEvent`, `findByEvent`, `removeTicketsByEvent`, `updatePricesByEvent`, `hasSoldTickets`, `holdTickets`, `releaseTickets`, `finalizePurchase`, `countAvailable`
-- [ ] **TicketsController has 2 GET endpoints only**
-- [ ] **BookingsService has 3 methods**: `create`, `findOne`, `cancel`
-- [ ] **BookingsController has 3 endpoints**: POST `/`, GET `/:id`, POST `/:id/cancel`
-- [ ] **Ticket entity has `heldAt` column**
-- [ ] **GlobalExceptionFilter registered**
-- [ ] **LoggingInterceptor registered**
+- [x] **TicketsService has 8 methods**: `createTicketsForEvent`, `findByEvent`, `removeTicketsByEvent`, `updatePricesByEvent`, `hasSoldTickets`, `holdTickets`, `releaseTickets`, `finalizePurchase`, `countAvailable`
+- [x] **TicketsController has 2 GET endpoints only**
+- [x] **BookingsService has 3 methods**: `create`, `findById`, `cancel`
+- [x] **BookingsController has 3 endpoints**: POST `/`, GET `/:id`, POST `/:id/cancel`
+- [x] **Ticket entity has `heldAt` column**
+- [x] **GlobalExceptionFilter registered**
 
 ---
 
@@ -567,6 +573,35 @@ async holdTickets(ticketIds: string[]): Promise<Ticket[]>
 - [ ] **Install @nestjs/throttler**: `npm install @nestjs/throttler`
 - [ ] **Configure ThrottlerModule in AppModule**
 - [ ] **Apply ThrottlerGuard globally**
+
+### Task 3.5: Circuit Breaker
+
+**File**: `apps/api/src/app/common/decorators/circuit-breaker/circuit-breaker.decorator.ts`
+
+```typescript
+// Decorator options: { failureThreshold: number, resetTimeoutMs: number }
+// States: CLOSED (normal), OPEN (rejecting), HALF-OPEN (testing recovery)
+// Uses Redis to track failure counts across instances
+// Throws ServiceUnavailableException when OPEN
+```
+
+**File**: `apps/api/src/app/common/interceptors/circuit-breaker.interceptor.ts`
+
+```typescript
+// Intercepts calls to external services (payment, email)
+// Tracks failures, opens circuit after threshold
+// Half-open state allows periodic health checks
+// Returns cached/fallback response when OPEN
+```
+
+**Apply to**: External service calls in queue processors (booking confirmation email)
+
+- [ ] **Install opossum**: `npm install opossum`
+- [ ] **Create CircuitBreakerService** (wraps opossum)
+- [ ] **Create @CircuitBreaker decorator**
+- [ ] **Create CircuitBreakerInterceptor**
+- [ ] **Apply to booking confirmation email in queue processor**
+- [ ] **Test: Trigger failures, verify circuit opens, verify fallback response**
 
 ---
 
@@ -771,6 +806,8 @@ Create response DTOs for all entities to control serialization:
 | Error messages       | `createEntityMessageOverrides()`         | Type-safe, consistent DB error translations         |
 | Booking cancel       | POST not DELETE                          | Cancel is an action, not deletion of resource       |
 | Ticket endpoints     | GET only                                 | Tickets managed via Events/Bookings, not directly   |
+| Repository layer     | Generic `BaseRepository<T>` + concrete   | Abstracts TypeORM, enables domain-specific queries  |
+| Repo DI              | Factory provider with `DataSource`       | Clean injection of custom repositories in modules   |
 
 ---
 
@@ -779,11 +816,11 @@ Create response DTOs for all entities to control serialization:
 | Feature          | NestJS Pattern                     | Course Reference           |
 | ---------------- | ---------------------------------- | -------------------------- |
 | BookingService   | `@InjectRepository` + Transactions | Section 3: TypeORM         |
+| Repository Layer | `BaseRepository<T>` + Factory      | Custom pattern             |
 | Redis Provider   | Factory Provider + `useFactory`    | Section 4: DI              |
 | DistributedLock  | Custom Decorator + Interceptor     | Section 6: Building Blocks |
 | Config           | `registerAs` + `ConfigType`        | Section 5: Configuration   |
 | Exception Filter | `@Catch()` + `ExceptionFilter`     | Section 6: Building Blocks |
-| Logging          | Interceptor + `tap()`              | Section 6: Building Blocks |
 | Scheduling       | `@Cron()` + ScheduleModule         | @nestjs/schedule docs      |
 | Queues           | BullMQ + Processors                | @nestjs/bullmq docs        |
 

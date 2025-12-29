@@ -5,8 +5,9 @@ import {
   ApiOkResponse,
   ApiNotFoundResponse,
 } from '@nestjs/swagger';
-import { TicketsService } from './tickets.service';
-import { Ticket } from './entities/ticket.entity';
+import { TicketCountResult, TicketsService } from './tickets.service';
+import { TicketResultDto } from './dto/ticket-result.dto';
+import { Serialize } from '../../common/interceptors/serialize.interceptor';
 
 @ApiTags('tickets')
 @Controller('tickets')
@@ -17,12 +18,25 @@ export class TicketsController {
   @ApiOperation({ summary: 'Get all tickets for a specific event' })
   @ApiOkResponse({
     description: 'Return a list of tickets for the given event.',
-    type: [Ticket],
+    type: [TicketResultDto],
   })
   @ApiNotFoundResponse({ description: 'Event not found.' })
+  @Serialize(TicketResultDto)
   async findByEvent(
     @Param('eventId', ParseUUIDPipe) eventId: string
-  ): Promise<Ticket[]> {
+  ): Promise<TicketResultDto[]> {
     return this.ticketsService.findByEvent(eventId);
+  }
+
+  @Get('/event/:eventId/available')
+  @ApiOperation({ summary: 'Get available ticket count for event' })
+  @ApiOkResponse({
+    description: 'Return the count of available tickets.',
+  })
+  @ApiNotFoundResponse({ description: 'Event not found.' })
+  async getAvailability(
+    @Param('eventId', ParseUUIDPipe) eventId: string
+  ): Promise<TicketCountResult> {
+    return this.ticketsService.countAvailable(eventId);
   }
 }

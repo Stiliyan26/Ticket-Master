@@ -46,7 +46,7 @@ export class EventsService {
   async create(createEventDto: CreateEventDto): Promise<Event> {
     const { venueId, ...eventData } = createEventDto;
 
-    const venue = await this.venuesService.findOne(venueId);
+    const venue = await this.venuesService.findById(venueId);
 
     const event = this.eventRepository.create({
       ...eventData,
@@ -62,12 +62,13 @@ export class EventsService {
     this.logger.log(
       `Event "${savedEvent.name}" created with ${seats.length} tickets`
     );
+
     return savedEvent;
   }
 
   async findAll(page = 1, limit = 10): Promise<PaginatedResponse<Event>> {
     // TODO: Allow users to pass arguments
-    return paginate(
+    const paginatedResult = await paginate(
       this.eventRepository,
       {
         relations: {
@@ -80,6 +81,8 @@ export class EventsService {
       page,
       limit
     );
+
+    return paginatedResult;
   }
 
   @Transactional<EventsService>({
@@ -90,7 +93,7 @@ export class EventsService {
       DB_OPERATIONS.READ
     ),
   })
-  async findOne(
+  async findById(
     id: string,
     lock?: { mode: 'pessimistic_write' | 'pessimistic_read' }
   ): Promise<Event> {
@@ -117,7 +120,15 @@ export class EventsService {
   })
   async update(id: string, updateEventDto: UpdateEventDto): Promise<Event> {
     const { venueId, ...updateEventData } = updateEventDto;
-    const existingEvent = await this.findOne(id, { mode: 'pessimistic_write' });
+    const existingEvent = await this.eventRepository.findOne({
+      where: { id },
+      relations: { venue: true },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!existingEvent) {
+      throw new NotFoundException(`Event with ID "${id}" not found`);
+    }
 
     if (venueId != null && venueId !== existingEvent.venue.id) {
       const hasSold = await this.ticketsService.hasSoldTickets(id);
@@ -128,7 +139,7 @@ export class EventsService {
         );
       }
 
-      const venue = await this.venuesService.findOne(venueId);
+      const venue = await this.venuesService.findById(venueId);
 
       await this.ticketsService.removeTicketsByEvent(id);
 
@@ -157,7 +168,9 @@ export class EventsService {
 
     this.eventRepository.merge(existingEvent, updateEventData);
 
-    return this.eventRepository.save(existingEvent);
+    const updatedEvent = await this.eventRepository.save(existingEvent);
+
+    return updatedEvent;
   }
 
   @Transactional<EventsService>({
@@ -169,7 +182,7 @@ export class EventsService {
     ),
   })
   async remove(id: string): Promise<void> {
-    const event = await this.findOne(id, { mode: 'pessimistic_write' });
+    const event = await this.findById(id, { mode: 'pessimistic_write' });
 
     const hasSold = await this.ticketsService.hasSoldTickets(id);
 

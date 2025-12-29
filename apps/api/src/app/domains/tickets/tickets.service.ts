@@ -14,11 +14,23 @@ import {
   createEntityMessageOverrides,
   DB_OPERATIONS,
 } from '../../common/utils/database-error.util';
+import { Booking } from '../bookings/entities/booking.entity';
+
+export interface TicketQueryCountResult {
+  available: string;
+  total: string;
+}
+
+export interface TicketCountResult {
+  available: number;
+  total: number;
+}
 
 @Injectable()
 export class TicketsService {
   private readonly logger = new Logger(TicketsService.name);
   private readonly CHUNK_SIZE = 500;
+  private readonly ALIAS = 'ticket';
 
   constructor(
     @InjectRepository(Ticket)
@@ -64,7 +76,11 @@ export class TicketsService {
   async findByEvent(eventId: string): Promise<Ticket[]> {
     return this.ticketRepository.find({
       where: { event: { id: eventId } },
-      relations: { seat: true },
+      relations: {
+        seat: true,
+        event: true,
+        booking: true,
+      },
     });
   }
 
@@ -106,7 +122,7 @@ export class TicketsService {
   async findAllTickets(
     ids: string[],
     lock?: { mode: 'pessimistic_write' | 'pessimistic_read' }
-  ) {
+  ): Promise<Ticket[]> {
     return this.ticketRepository.find({
       where: {
         id: In(ids),
@@ -149,7 +165,9 @@ export class TicketsService {
       t.heldAt = new Date();
     });
 
-    return this.ticketRepository.save(tickets);
+    const heldTickets = await this.ticketRepository.save(tickets);
+
+    return heldTickets;
   }
 
   @Transactional<TicketsService>({
@@ -165,11 +183,14 @@ export class TicketsService {
       mode: 'pessimistic_write',
     });
 
-    const heldTickets = tickets.filter((t) => t.status === TicketStatus.HELD);
+    const heldTickets = tickets.filter(
+      (t) => t.status === TicketStatus.HELD || t.status === TicketStatus.SOLD
+    );
 
     heldTickets.forEach((t) => {
       t.status = TicketStatus.AVAILABLE;
       t.heldAt = null;
+      t.booking = undefined;
     });
 
     await this.ticketRepository.save(heldTickets);
@@ -183,7 +204,10 @@ export class TicketsService {
       DB_OPERATIONS.UPDATE
     ),
   })
-  async finalizePurchase(ticketIds: string[]): Promise<Ticket[]> {
+  async finalizePurchase(
+    ticketIds: string[],
+    booking: Booking
+  ): Promise<Ticket[]> {
     const tickets = await this.findAllTickets(ticketIds, {
       mode: 'pessimistic_write',
     });
@@ -202,9 +226,31 @@ export class TicketsService {
 
     tickets.forEach((t) => {
       t.status = TicketStatus.SOLD;
-      t.heldAt = null;
+      t.booking = booking;
     });
 
-    return this.ticketRepository.save(tickets);
+    const finalizedTickets = await this.ticketRepository.save(tickets);
+
+    return finalizedTickets;
+  }
+
+  async countAvailable(eventId: string): Promise<TicketCountResult> {
+    const statusProp: keyof Ticket = 'status';
+
+    const result = await this.ticketRepository
+      .createQueryBuilder(this.ALIAS)
+      .select('COUNT(*)', 'total')
+      .addSelect(
+        `COUNT(CASE WHEN ${this.ALIAS}.${statusProp} = :status THEN 1 END)`,
+        'available'
+      )
+      .where(`${this.ALIAS}.eventId = :eventId`, { eventId })
+      .setParameter('status', TicketStatus.AVAILABLE)
+      .getRawOne<TicketQueryCountResult>();
+
+    return {
+      available: Number(result?.available ?? 0),
+      total: Number(result?.total ?? 0),
+    };
   }
 }

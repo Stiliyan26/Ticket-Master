@@ -54,11 +54,13 @@ export class SeatsService {
 
     const entities = this.mapSeatDtoToEntity(createSeatDtos, venuesMap);
 
-    return this.seatRepository.save(entities);
+    const savedSeats = await this.seatRepository.save(entities);
+
+    return savedSeats;
   }
 
   async findAll(page: number, limit: number): Promise<PaginatedResponse<Seat>> {
-    return paginate(
+    const paginatedResult = await paginate(
       this.seatRepository,
       // TODO: pass query options from the client
       {
@@ -75,6 +77,8 @@ export class SeatsService {
       page,
       limit
     );
+
+    return paginatedResult;
   }
 
   @Transactional<SeatsService>({
@@ -109,17 +113,26 @@ export class SeatsService {
     ),
   })
   async update(id: string, updateSeatDto: UpdateSeatDto): Promise<Seat> {
-    const seat = await this.findById(id);
+    const seat = await this.seatRepository.findOne({
+      where: { id },
+      relations: { venue: true },
+    });
+
+    if (!seat) {
+      throw new NotFoundException(`Seat with ID "${id}" not found`);
+    }
 
     if (updateSeatDto.venueId && updateSeatDto.venueId !== seat.venue.id) {
-      const venue = await this.venuesService.findOne(updateSeatDto.venueId);
+      const venue = await this.venuesService.findById(updateSeatDto.venueId);
 
       seat.venue = venue;
     }
 
     this.seatRepository.merge(seat, updateSeatDto);
 
-    return this.seatRepository.save(seat);
+    const updatedSeat = await this.seatRepository.save(seat);
+
+    return updatedSeat;
   }
 
   @Transactional<SeatsService>({
@@ -147,6 +160,7 @@ export class SeatsService {
   async findAllByVenue(venueId: string): Promise<Seat[]> {
     return this.seatRepository.find({
       where: { venue: { id: venueId } },
+      relations: { venue: true },
     });
   }
 
@@ -175,7 +189,7 @@ export class SeatsService {
   }
 
   private async getVenuesMap(venueIds: string[]): Promise<Map<string, Venue>> {
-    const venuesFromDb = await this.venuesService.findByIds(venueIds);
+    const venuesFromDb = await this.venuesService.findByIdsWithLock(venueIds);
 
     const venuesMap = venuesFromDb.reduce((map, venue) => {
       map.set(venue.id, venue);

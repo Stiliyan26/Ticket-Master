@@ -3,6 +3,7 @@ import { BaseEntity } from '../../../common/entities/base-entity';
 import { Event } from '../../events/entities/event.entity';
 import { Seat } from '../../seats/entities/seat.entity';
 import { Booking } from '../../bookings/entities/booking.entity';
+import { TableName } from '../../../common/enums/table-name.enum';
 
 export enum TicketStatus {
   AVAILABLE = 'AVAILABLE',
@@ -12,7 +13,7 @@ export enum TicketStatus {
 
 type TicketUniqueFields = keyof Pick<Ticket, 'event' | 'seat'>;
 
-@Entity('tickets')
+@Entity(TableName.TICKETS)
 @Unique('unique_ticket_per_event_seat', [
   'event',
   'seat',

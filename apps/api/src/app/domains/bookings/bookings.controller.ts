@@ -3,9 +3,7 @@ import {
   Get,
   Post,
   Body,
-  Patch,
   Param,
-  Delete,
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
@@ -15,14 +13,14 @@ import {
   ApiOperation,
   ApiOkResponse,
   ApiCreatedResponse,
-  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
-import { UpdateBookingDto } from './dto/update-booking.dto';
+import { BookingResultDto } from './dto/booking-result.dto';
 import { Booking } from './entities/booking.entity';
+import { Serialize } from '../../common/interceptors/serialize.interceptor';
 
 @ApiTags('bookings')
 @Controller('bookings')
@@ -34,59 +32,36 @@ export class BookingsController {
   @ApiOperation({ summary: 'Create a new booking' })
   @ApiCreatedResponse({
     description: 'The booking has been successfully created.',
-    type: Booking,
+    type: BookingResultDto,
   })
   @ApiBadRequestResponse({
     description: 'Invalid input data or tickets unavailable.',
   })
-  create(@Body() createBookingDto: CreateBookingDto) {
+  @Serialize(BookingResultDto)
+  create(@Body() createBookingDto: CreateBookingDto): Promise<Booking> {
     return this.bookingsService.create(createBookingDto);
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'Get all bookings' })
-  @ApiOkResponse({
-    description: 'Return all bookings.',
-    type: [Booking],
-  })
-  findAll() {
-    return this.bookingsService.findAll();
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a booking by id' })
   @ApiOkResponse({
     description: 'Return the booking found by id.',
-    type: Booking,
+    type: BookingResultDto,
   })
   @ApiNotFoundResponse({ description: 'Booking not found.' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.bookingsService.findOne(id);
+  @Serialize(BookingResultDto)
+  findById(@Param('id', ParseUUIDPipe) id: string): Promise<Booking> {
+    return this.bookingsService.findById(id);
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update a booking' })
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel a booking' })
   @ApiOkResponse({
-    description: 'The booking has been successfully updated.',
-    type: Booking,
+    description: 'The booking has been successfully cancelled.',
   })
   @ApiNotFoundResponse({ description: 'Booking not found.' })
-  @ApiBadRequestResponse({ description: 'Invalid input data.' })
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateBookingDto: UpdateBookingDto
-  ) {
-    return this.bookingsService.update(id, updateBookingDto);
-  }
-
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a booking' })
-  @ApiNoContentResponse({
-    description: 'The booking has been successfully deleted.',
-  })
-  @ApiNotFoundResponse({ description: 'Booking not found.' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.bookingsService.remove(id);
+  cancel(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    return this.bookingsService.cancel(id);
   }
 }
