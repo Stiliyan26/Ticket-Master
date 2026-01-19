@@ -360,26 +360,6 @@ export class BookingsController {
 
 ---
 
-### 🛠️ Task 5: Production Infrastructure
-
-**File to create**:
-
-#### 5.1 GlobalExceptionFilter
-
-**File**: `apps/api/src/app/common/filters/global-exception.filter.ts`
-
-```typescript
-// Catches all exceptions
-// Returns consistent format: { statusCode, message, error, timestamp, path }
-// Logs full error for 500s
-// Register in main.ts: app.useGlobalFilters(new GlobalExceptionFilter())
-```
-
-- [x] **Create GlobalExceptionFilter**
-- [x] **Register in main.ts**
-
----
-
 ### ✅ Task 6: Phase 1B Completion Checklist ✅ VERIFIED
 
 All items verified:
@@ -389,7 +369,6 @@ All items verified:
 - [x] **BookingsService has 3 methods**: `create`, `findById`, `cancel`
 - [x] **BookingsController has 3 endpoints**: POST `/`, GET `/:id`, POST `/:id/cancel`
 - [x] **Ticket entity has `heldAt` column**
-- [x] **GlobalExceptionFilter registered**
 
 ---
 

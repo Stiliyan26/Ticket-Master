@@ -15,7 +15,7 @@ import {
   DB_OPERATIONS,
 } from '../../common/utils/database-error.util';
 import { Booking } from '../bookings/entities/booking.entity';
-import { EventsService } from '../events/events.service';
+import { EntityCheckerService } from '../../common/services/entity-checker.service';
 
 export interface TicketQueryCountResult {
   available: string;
@@ -36,8 +36,8 @@ export class TicketsService {
   constructor(
     @InjectRepository(Ticket)
     public readonly ticketRepository: Repository<Ticket>,
-    private readonly eventService: EventsService
-  ) {}
+    private readonly entityCheckerService: EntityCheckerService
+  ) { }
 
   @Transactional<TicketsService>({
     repoKey: 'ticketRepository',
@@ -68,8 +68,7 @@ export class TicketsService {
       await this.ticketRepository.save(tickets);
 
       this.logger.debug(
-        `Saved chunk of ${tickets.length} tickets (${i + tickets.length}/${
-          seats.length
+        `Saved chunk of ${tickets.length} tickets (${i + tickets.length}/${seats.length
         })`
       );
     }
@@ -252,7 +251,7 @@ export class TicketsService {
       .getRawOne<TicketQueryCountResult>();
 
     if (!result || result.total === '0') {
-      const eventExists = await this.eventService.exists(eventId);
+      const eventExists = await this.entityCheckerService.eventExists(eventId);
 
       if (!eventExists) {
         throw new NotFoundException(`Event with ID ${eventId} not found`);
